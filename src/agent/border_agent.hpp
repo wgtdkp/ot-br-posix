@@ -99,6 +99,19 @@ public:
 
 private:
     /**
+     * This struct defines the State bitmap.
+     *
+     */
+    struct State
+    {
+        uint32_t mConnectionMode : 3;
+        uint32_t mThreadIfStatus : 2;
+        uint32_t mAvailability : 2;
+        uint32_t mBbrIsActive : 1;
+        uint32_t mBbrIsPrimary : 1;
+    };
+
+    /**
      * This method starts border agent service.
      *
      * @retval  OTBR_ERROR_NONE     Successfully started border agent.
@@ -135,6 +148,7 @@ private:
     static void HandleThreadState(void *aContext, int aEvent, va_list aArguments);
     static void HandleNetworkName(void *aContext, int aEvent, va_list aArguments);
     static void HandleExtPanId(void *aContext, int aEvent, va_list aArguments);
+    static void EncodeState(char *aBuf, size_t aMaxLength, const State &aState);
 
     Mdns::Publisher *mPublisher;
     Ncp::Controller *mNcp;
@@ -144,6 +158,7 @@ private:
 #endif
     uint8_t mExtPanId[kSizeExtPanId];
     char    mNetworkName[kSizeNetworkName + 1];
+    State   mState;
     bool    mThreadStarted;
     bool    mPSKcInitialized;
 };

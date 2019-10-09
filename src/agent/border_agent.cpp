@@ -95,6 +95,7 @@ void BorderAgent::Init(void)
 {
     memset(mNetworkName, 0, sizeof(mNetworkName));
     memset(mExtPanId, 0, sizeof(mExtPanId));
+    memset(&mState, 0, sizeof(mState));
 
 #if OTBR_ENABLE_NCP_WPANTUND
     mNcp->On(Ncp::kEventUdpForwardStream, SendToCommissioner, this);
@@ -408,6 +409,21 @@ void BorderAgent::HandleExtPanId(void *aContext, int aEvent, va_list aArguments)
 
     const uint8_t *xpanid = va_arg(aArguments, const uint8_t *);
     static_cast<BorderAgent *>(aContext)->SetExtPanId(xpanid);
+}
+
+void BorderAgent::EncodeState(char *aBuf, size_t aMaxLength, const State &aState)
+{
+    uint8_t bytes[sizeof(uint32_t)] = {0};
+
+    assert(aMaxLength >= sizeof(uint32_t) * 2 + 1);
+
+    bytes[0] |= aState.mConnectionMode << 5;
+    bytes[0] |= aState.mThreadIfStatus << 3;
+    bytes[0] |= aState.mAvailability << 1;
+    bytes[0] |= aState.mBbrIsActive;
+    bytes[1] |= aState.mBbrIsPrimary << 7;
+
+    Utils::Bytes2Hex(bytes, sizeof(bytes), aBuf);
 }
 
 } // namespace BorderRouter
