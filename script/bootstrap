@@ -127,6 +127,27 @@ install_packages_source()
     die 'source not supported currently'
 }
 
+# TODO: Install with prebuilt binaries in the future.
+install_ot_commissioner()
+{
+    local commissioner_dir=".ot-commissioner"
+
+    rm -rf ${commissioner_dir}
+    git clone --depth 1 --branch master https://github.com/openthread/ot-commissioner ${commissioner_dir}
+
+    cd ${commissioner_dir}
+        ./script/bootstrap.sh
+        mkdir build
+        cd build
+            cmake -DCMAKE_BUILD_TYPE=Release ..
+            make
+            sudo make install
+        cd -
+    cd -
+
+    rm -rf ${commissioner_dir}
+}
+
 install_packages()
 {
     if have apt-get; then
@@ -140,6 +161,8 @@ install_packages()
     else
         install_packages_source
     fi
+
+    install_ot_commissioner
 }
 
 main()

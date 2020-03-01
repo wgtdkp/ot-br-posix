@@ -293,36 +293,6 @@ NL_ENABLE_DOCS([auto],[NO])
 AM_CONDITIONAL(OTBR_BUILD_DOCS, [test "${nl_cv_build_docs}" = "yes"])
 
 #
-# Commissioner
-#
-
-AC_ARG_ENABLE(commissioner,
-    [AS_HELP_STRING([--enable-commissioner],[Enable commissioner @<:@default=yes@:>@.])],
-    [
-        case "${enableval}" in
-
-        no|yes)
-            enable_commissioner=${enableval}
-            ;;
-
-        *)
-            AC_MSG_ERROR([Invalid value ${enable_commissioner} for --enable-commissioner])
-            ;;
-        esac
-    ],
-    [enable_commissioner=yes])
-
-if test "$enable_commissioner" = "yes"; then
-    OTBR_ENABLE_COMMISSIONER=1
-else
-    OTBR_ENABLE_COMMISSIONER=0
-fi
-
-AC_MSG_RESULT(${enable_commissioner})
-AC_SUBST(OTBR_ENABLE_COMMISSIONER)
-AM_CONDITIONAL([OTBR_ENABLE_COMMISSIONER], [test "${enable_commissioner}" = "yes"])
-
-#
 # Web Service
 #
 
@@ -344,6 +314,7 @@ AC_ARG_ENABLE(web-service,
 
 if test "$enable_web_service" = "yes"; then
     OTBR_ENABLE_WEB_SERVICE=1
+    AC_CONFIG_SUBDIRS([third_party/ot-commissioner])
 else
     OTBR_ENABLE_WEB_SERVICE=0
 fi
@@ -577,7 +548,6 @@ AC_CONFIG_FILES([
 Makefile
 third_party/Makefile
 third_party/Simple-web-server/Makefile
-third_party/libcoap/Makefile
 third_party/openthread/Makefile
 third_party/wpantund/Makefile
 third_party/mdl/Makefile
@@ -587,7 +557,6 @@ include/Makefile
 src/Makefile
 src/agent/Makefile
 src/agent/otbr-agent.conf
-src/commissioner/Makefile
 src/common/Makefile
 src/dbus/Makefile
 src/utils/Makefile
@@ -600,11 +569,6 @@ tests/unit/Makefile
 tools/Makefile
 doc/Makefile
 ])
-
-if test "$enable_commissioner" = "yes"; then
-    ac_configure_args="$ac_configure_args --disable-examples --disable-documentation"
-    AC_CONFIG_SUBDIRS([third_party/libcoap/repo])
-fi
 
 #
 # Generate the auto-generated files for the package

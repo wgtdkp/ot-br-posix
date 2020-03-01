@@ -28,7 +28,6 @@
 
 include $(abs_top_nlbuild_autotools_dir)/automake/pre.am
 
-include $(top_srcdir)/third_party/openthread/mbedtls.mk
 include $(top_srcdir)/third_party/openthread/openthread.mk
 
 # Temporary disable -Werror for the included third party server_http
@@ -62,7 +61,6 @@ libotbr_web_la_LIBADD                                           = \
     -lboost_system                                                \
     -lpthread                                                     \
     -ljsoncpp                                                     \
-    $(top_builddir)/src/commissioner/libotbr-commissioner.la      \
     $(top_builddir)/src/agent/libotbr-agent.la                    \
     $(top_builddir)/src/utils/libutils.la                         \
     $(top_builddir)/src/common/libotbr-logging.la                 \

@@ -33,18 +33,13 @@ SUBDIRS                 = \
     wpantund              \
     $(NULL)
 
-if OTBR_ENABLE_COMMISSIONER
-SUBDIRS                += \
-    libcoap               \
-    $(NULL)
-endif
-
 if OTBR_ENABLE_WEB_SERVICE
 SUBDIRS                += \
     angular               \
     angular-material      \
     mdl                   \
     Simple-web-server     \
+    ot-commissioner       \
     $(NULL)
 endif
 
