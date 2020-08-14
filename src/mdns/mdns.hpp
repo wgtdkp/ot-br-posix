@@ -34,6 +34,9 @@
 #ifndef OTBR_AGENT_MDNS_HPP_
 #define OTBR_AGENT_MDNS_HPP_
 
+#include <list>
+#include <vector>
+
 #include <sys/select.h>
 
 #include "common/types.hpp"
@@ -77,6 +80,8 @@ typedef void (*StateHandler)(void *aContext, State aState);
 class Publisher
 {
 public:
+    using TxtRecordList = std::list<std::pair<std::string, std::vector<uint8_t>>>;
+
     /**
      * This method starts the MDNS service.
      *
@@ -115,6 +120,21 @@ public:
      *
      */
     virtual otbrError PublishService(uint16_t aPort, const char *aName, const char *aType, ...) = 0;
+
+    /**
+     * This method publishes or updates a service.
+     *
+     * @param[in]   aName               The name of this service.
+     * @param[in]   aType               The type of this service.
+     * @param[in]   aPort               The port number of this service.
+     * @param[in]   ...                 Pointers to null-terminated string of key and value for text record.
+     *                                  The last argument must be nullptr.
+     *
+     * @retval  OTBR_ERROR_NONE     Successfully published or updated the service.
+     * @retval  OTBR_ERROR_ERRNO    Failed to publish or update the service.
+     *
+     */
+    virtual otbrError PublishService(uint16_t aPort, const char *aName, const char *aType, const TxtRecordList &aTxtRecords) = 0;
 
     /**
      * This method performs the MDNS processing.

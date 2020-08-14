@@ -166,6 +166,18 @@ void ControllerOpenThread::HandleStateChanged(otChangedFlags aFlags)
     mThreadHelper->StateChangedCallback(aFlags);
 }
 
+void ControllerOpenThread::HandleDiscoveryRequest(const otThreadDiscoveryRequestInfo *aDiscoveryInfo)
+{
+    if (aDiscoveryInfo != NULL)
+    {
+        EventEmitter::Emit(kEventDiscoveryRequest, *aDiscoveryInfo);
+    }
+    else
+    {
+        otbrLog(OTBR_LOG_WARNING, "joiner discovery request is null");
+    }
+}
+
 static struct timeval ToTimeVal(const microseconds &aTime)
 {
     constexpr int  kUsPerSecond = 1000000;

@@ -415,6 +415,64 @@ exit:
     return ret;
 }
 
+otbrError PublisherMDnsSd::PublishService(uint16_t aPort, const char *aName, const char *aType, const TxtRecordList &aTxtRecords)
+{
+    otbrError ret = OTBR_ERROR_NONE;
+    int           error = 0;
+    DNSServiceRef serviceRef = nullptr;
+    std::vector<uint8_t> records = SerializeTxtRecords(aTxtRecords);
+
+    for (Services::iterator it = mServices.begin(); it != mServices.end(); ++it)
+    {
+        if (!strncmp(it->mName, aName, sizeof(it->mName)) && !strncmp(it->mType, aType, sizeof(it->mType)))
+        {
+            otbrLog(OTBR_LOG_INFO, "MDNS remove current service %s", aName);
+            DNSServiceUpdateRecord(it->mService, nullptr, 0, records.size(), records.data(), 0);
+            ExitNow();
+        }
+    }
+
+    SuccessOrExit(error = DNSServiceRegister(&serviceRef, 0, kDNSServiceInterfaceIndexAny, aName, aType, mDomain, mHost,
+                                             htons(aPort), records.size(), records.data(),
+                                             HandleServiceRegisterResult, this));
+    if (serviceRef != nullptr)
+    {
+        RecordService(aName, aType, serviceRef);
+    }
+
+exit:
+
+    if (error != kDNSServiceErr_NoError)
+    {
+        ret = OTBR_ERROR_MDNS;
+        otbrLog(OTBR_LOG_ERR, "Failed to publish service for mdnssd error: %s!", DNSErrorToString(error));
+    }
+    return ret;
+}
+
+std::vector<uint8_t> PublisherMDnsSd::SerializeTxtRecords(const TxtRecordList &aTxtRecords)
+{
+    std::vector<uint8_t> result;
+
+    for (const auto &record : aTxtRecords)
+    {
+        size_t recordLength = record.first.size() + record.second.size() + 1;
+
+        if (recordLength > kMaxSizeOfTxtRecord)
+        {
+            otbrLog(OTBR_LOG_WARNING, "Skip text record '%s' that is too long", record.first.c_str());
+            continue;
+        }
+
+        result.emplace_back(static_cast<uint8_t>(recordLength));
+        std::copy(record.first.begin(), record.first.end(), std::back_inserter(result));
+        result.emplace_back('=');
+        std::copy(record.second.begin(), record.second.end(), std::back_inserter(result));
+    }
+
+    return result;
+}
+
 Publisher *Publisher::Create(int aFamily, const char *aHost, const char *aDomain, StateHandler aHandler, void *aContext)
 {
     return new PublisherMDnsSd(aFamily, aHost, aDomain, aHandler, aContext);

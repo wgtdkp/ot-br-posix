@@ -97,11 +97,13 @@ void BorderAgent::Init(void)
     memset(mExtPanId, 0, sizeof(mExtPanId));
     mExtPanIdInitialized = false;
     mThreadVersion       = 0;
+    mDiscoveryInfos.clear();
 
 #if OTBR_ENABLE_MDNS_AVAHI || OTBR_ENABLE_MDNS_MDNSSD || OTBR_ENABLE_MDNS_MOJO
     mNcp->On(Ncp::kEventExtPanId, HandleExtPanId, this);
     mNcp->On(Ncp::kEventNetworkName, HandleNetworkName, this);
     mNcp->On(Ncp::kEventThreadVersion, HandleThreadVersion, this);
+    mNcp->On(Ncp::kEventDiscoveryRequest, HandleDiscoveryRequest, this);
 #endif
     mNcp->On(Ncp::kEventThreadState, HandleThreadState, this);
     mNcp->On(Ncp::kEventPSKc, HandlePSKc, this);
@@ -203,17 +205,27 @@ static const char *ThreadVersionToString(uint16_t aThreadVersion)
 void BorderAgent::PublishService(void)
 {
     const char *versionString = ThreadVersionToString(mThreadVersion);
+    Mdns::Publisher::TxtRecordList txtRecords;
+    size_t discoveryInfoIndex;
 
     assert(mNetworkName[0] != '\0');
     assert(mExtPanIdInitialized);
 
     assert(mThreadVersion != 0);
+
+    txtRecords.emplace_back("nn", std::vector<uint8_t>{mNetworkName, mNetworkName + strlen(mNetworkName)});
+    txtRecords.emplace_back("xp", std::vector<uint8_t>{mExtPanId, mExtPanId + sizeof(mExtPanId)});
+    txtRecords.emplace_back("tv", std::vector<uint8_t>{versionString, versionString + strlen(versionString)});
+
+    discoveryInfoIndex = 0;
+    for (const auto &info : mDiscoveryInfos)
+    {
+        auto key = "ja" + std::to_string(discoveryInfoIndex++);
+        txtRecords.emplace_back(key, SerializeDiscoveryInfo(info));
+    }
+
     // clang-format off
-    mPublisher->PublishService(kBorderAgentUdpPort, mNetworkName, kBorderAgentServiceType,
-        "nn", mNetworkName, strlen(mNetworkName),
-        "xp", &mExtPanId, sizeof(mExtPanId),
-        "tv", versionString, strlen(versionString),
-        nullptr);
+    mPublisher->PublishService(kBorderAgentUdpPort, mNetworkName, kBorderAgentServiceType, txtRecords);
     // clang-format on
 }
 
@@ -350,6 +362,42 @@ void BorderAgent::HandleThreadState(void *aContext, int aEvent, va_list aArgumen
     static_cast<BorderAgent *>(aContext)->HandleThreadState(started);
 }
 
+void BorderAgent::HandleDiscoveryRequest(const otThreadDiscoveryRequestInfo &aDiscoveryInfo)
+{
+    bool isNewInfo = true;
+
+    for (auto &info : mDiscoveryInfos)
+    {
+        if (memcmp(&info.mExtAddress, &aDiscoveryInfo.mExtAddress, sizeof(info.mExtAddress)) == 0)
+        {
+            info = aDiscoveryInfo;
+            isNewInfo = false;
+        }
+    }
+
+    if (isNewInfo)
+    {
+        mDiscoveryInfos.emplace_back(aDiscoveryInfo);
+    }
+
+#if OTBR_ENABLE_MDNS_AVAHI || OTBR_ENABLE_MDNS_MDNSSD || OTBR_ENABLE_MDNS_MOJO
+    if (mThreadStarted)
+    {
+        StartPublishService();
+    }
+#endif
+}
+
+void BorderAgent::HandleDiscoveryRequest(void *aContext, int aEvent, va_list aArguments)
+{
+    OT_UNUSED_VARIABLE(aEvent);
+
+    assert(aEvent == Ncp::kEventDiscoveryRequest);
+
+    otThreadDiscoveryRequestInfo discoveryInfo = va_arg(aArguments, otThreadDiscoveryRequestInfo);
+    static_cast<BorderAgent *>(aContext)->HandleDiscoveryRequest(discoveryInfo);
+}
+
 void BorderAgent::HandleNetworkName(void *aContext, int aEvent, va_list aArguments)
 {
     OT_UNUSED_VARIABLE(aEvent);
@@ -379,6 +427,13 @@ void BorderAgent::HandleThreadVersion(void *aContext, int aEvent, va_list aArgum
     // `uint16_t` has been promoted to `int`.
     uint16_t threadVersion = static_cast<uint16_t>(va_arg(aArguments, int));
     static_cast<BorderAgent *>(aContext)->SetThreadVersion(threadVersion);
+}
+
+std::vector<uint8_t> BorderAgent::SerializeDiscoveryInfo(const otThreadDiscoveryRequestInfo &aDiscoveryInfo)
+{
+    OT_UNUSED_VARIABLE(aDiscoveryInfo);
+    // TODO(wgtdkp):
+    return {0x00, 0x11, 0x22, 0x33};
 }
 
 } // namespace otbr

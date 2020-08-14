@@ -223,6 +223,21 @@ public:
     otbrError PublishService(uint16_t aPort, const char *aName, const char *aType, ...);
 
     /**
+     * This method publishes or updates a service.
+     *
+     * @param[in]   aName               The name of this service.
+     * @param[in]   aType               The type of this service.
+     * @param[in]   aPort               The port number of this service.
+     * @param[in]   ...                 Pointers to null-terminated string of key and value for text record.
+     *                                  The last argument must be nullptr.
+     *
+     * @retval  OTBR_ERROR_NONE     Successfully published or updated the service.
+     * @retval  OTBR_ERROR_ERRNO    Failed to publish or update the service.
+     *
+     */
+    otbrError PublishService(uint16_t aPort, const char *aName, const char *aType, const TxtRecordList &aTxtRecords) override;
+
+    /**
      * This method starts the MDNS service.
      *
      * @retval OTBR_ERROR_NONE  Successfully started MDNS service;
