@@ -46,7 +46,7 @@ using std::chrono::seconds;
 using std::chrono::steady_clock;
 
 namespace otbr {
-namespace rest {
+namespace Rest {
 
 /**
  * This class implements a response class for OTBR_REST, it could be manipulated by connection instance and resource
@@ -146,7 +146,7 @@ private:
     steady_clock::time_point mStartTime;
 };
 
-} // namespace rest
+} // namespace Rest
 } // namespace otbr
 
 #endif // OTBR_REST_RESPONSE_HPP_

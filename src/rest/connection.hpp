@@ -43,7 +43,7 @@
 using std::chrono::steady_clock;
 
 namespace otbr {
-namespace rest {
+namespace Rest {
 
 /**
  * This class implements a Connection class of each socket connection.
@@ -132,7 +132,7 @@ private:
     std::string mWriteContent;
 };
 
-} // namespace rest
+} // namespace Rest
 } // namespace otbr
 
 #endif // OTBR_REST_CONNECTION_HPP_
