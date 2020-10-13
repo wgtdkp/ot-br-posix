@@ -35,16 +35,16 @@
 #define OT_REST_RESPONSE_ACCESS_CONTROL_ALLOW_HEADERS                                                              \
     "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, " \
     "Access-Control-Request-Headers"
-#define OT_REST_RESPONSE_ACCESS_CONTROL_ALLOW_METHOD "GET"
+#define OT_REST_RESPONSE_ACCESS_CONTROL_ALLOW_METHOD "*"
 
 namespace otbr {
-namespace rest {
+namespace Rest {
 
 Response::Response(void)
     : mCallback(false)
     , mComplete(false)
 {
-    // HTTP protocol
+    // HTTP protocol 1.1
     mProtocol = "HTTP/1.1 ";
 
     // Pre-defined headers
@@ -122,5 +122,5 @@ std::string Response::Serialize(void) const
     return ret;
 }
 
-} // namespace rest
+} // namespace Rest
 } // namespace otbr
