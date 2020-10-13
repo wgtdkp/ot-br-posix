@@ -74,29 +74,6 @@ static cJSON *Prefix2Json(const otIp6Prefix &aPrefix)
     return cJSON_CreateString(serilizedPrefix.c_str());
 }
 
-static cJSON *Prefix2Json(const otIp6Prefix &aPrefix)
-{
-    std::string serilizedPrefix;
-    uint16_t    twoBytes;
-    char        prefix[5];
-
-    for (size_t i = 0; i < 8; ++i)
-    {
-        if (i % 2 == 1)
-        {
-            twoBytes = (aPrefix.mPrefix.mFields.m8[i - 1] << 8) + aPrefix.mPrefix.mFields.m8[i];
-            sprintf(prefix, "%x", twoBytes);
-            if (i > 1)
-            {
-                serilizedPrefix += ":";
-            }
-            serilizedPrefix += std::string(prefix);
-        }
-    }
-
-    return cJSON_CreateString(serilizedPrefix.c_str());
-}
-
 std::string String2JsonString(const std::string &aString)
 {
     std::string ret;
