@@ -43,7 +43,8 @@ static cJSON *Bytes2HexJson(const uint8_t *aBytes, uint8_t aLength)
     char hex[2 * aLength + 1];
 
     otbr::Utils::Bytes2Hex(aBytes, aLength, hex);
-    for (auto &ch : hex) {
+    for (auto &ch : hex)
+    {
         ch = tolower(ch);
     }
 
