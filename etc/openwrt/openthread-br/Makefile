@@ -45,7 +45,8 @@ CMAKE_OPTIONS = \
 	-DCMAKE_INSTALL_PREFIX=/usr \
 	-DOTBR_MDNS=OFF \
 	-DOT_READLINE="" \
-	-DOTBR_OPENWRT=ON
+	-DOTBR_OPENWRT=ON \
+	-DOTBR_REST=ON
 
 define Package/openthread-br
 	SECTION := base
