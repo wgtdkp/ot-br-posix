@@ -88,6 +88,9 @@ BorderAgent::BorderAgent(Ncp::Controller *aNcp)
     : mPublisher(nullptr)
 #endif
     , mNcp(aNcp)
+#if OTBR_ENABLE_ADVERTISING_PROXY
+    , mAdvertisingProxy(mPublisher)
+#endif
 #if OTBR_ENABLE_BACKBONE_ROUTER
     , mBackboneAgent(*reinterpret_cast<Ncp::ControllerOpenThread *>(aNcp))
 #endif
@@ -135,6 +138,10 @@ otbrError BorderAgent::Start(void)
     StartPublishService();
 #endif // OTBR_ENABLE_MDNS_AVAHI || OTBR_ENABLE_MDNS_MDNSSD || OTBR_ENABLE_MDNS_MOJO
 
+#if OTBR_ENABLE_ADVERTISING_PROXY
+    mAdvertisingProxy.Start(static_cast<Ncp::ControllerOpenThread *>(mNcp)->GetInstance());
+#endif
+
     // Suppress unused warning of label exit
     ExitNow();
 
@@ -145,6 +152,10 @@ exit:
 
 void BorderAgent::Stop(void)
 {
+#if OTBR_ENABLE_ADVERTISING_PROXY
+    mAdvertisingProxy.Stop();
+#endif
+
 #if OTBR_ENABLE_MDNS_AVAHI || OTBR_ENABLE_MDNS_MDNSSD || OTBR_ENABLE_MDNS_MOJO
     StopPublishService();
 #endif

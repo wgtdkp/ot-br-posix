@@ -27,6 +27,7 @@
 #
 
 add_executable(otbr-agent
+    advertising_proxy.cpp
     agent_instance.cpp
     agent_instance.hpp
     border_agent.cpp

@@ -36,6 +36,7 @@
 
 #include <stdint.h>
 
+#include "agent/advertising_proxy.hpp"
 #include "agent/instance_params.hpp"
 #include "agent/ncp.hpp"
 #include "mdns/mdns.hpp"
@@ -139,6 +140,10 @@ private:
 
     Mdns::Publisher *mPublisher;
     Ncp::Controller *mNcp;
+
+#if OTBR_ENABLE_ADVERTISING_PROXY
+    AdvertisingProxy mAdvertisingProxy;
+#endif
 #if OTBR_ENABLE_BACKBONE_ROUTER
     BackboneRouter::BackboneAgent mBackboneAgent;
 #endif

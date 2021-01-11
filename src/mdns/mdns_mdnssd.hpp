@@ -195,12 +195,12 @@ private:
                                             const char *          aName,
                                             const char *          aType,
                                             const char *          aDomain);
-    static void HandleRegisterHostResult(DNSServiceRef       aHostsConnection,
+    static void HandleHostRegisterResult(DNSServiceRef       aHostsConnection,
                                          DNSRecordRef        aHostRecord,
                                          DNSServiceFlags     aFlags,
                                          DNSServiceErrorType aErrorCode,
                                          void *              aContext);
-    void        HandleRegisterHostResult(DNSServiceRef       aHostsConnection,
+    void        HandleHostRegisterResult(DNSServiceRef       aHostsConnection,
                                          DNSRecordRef        aHostRecord,
                                          DNSServiceFlags     aFlags,
                                          DNSServiceErrorType aErrorCode);
