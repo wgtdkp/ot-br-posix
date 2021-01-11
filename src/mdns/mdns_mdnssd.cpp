@@ -522,6 +522,9 @@ otbrError PublisherMDnsSd::PublishHost(const char *aName, const uint8_t *aAddres
     DNSRecordRef hostRecord;
     Host         newHost;
 
+    // Supports only IPv6 for now, may support IPv4 in the future.
+    VerifyOrExit(aAddressLength == OTBR_IP6_ADDRESS_SIZE, error = OTBR_ERROR_INVALID_ARGS);
+
     SuccessOrExit(ret = MakeFullName(fullName, sizeof(fullName), aName));
 
     if (mHostsConnection == nullptr)
@@ -547,7 +550,7 @@ otbrError PublisherMDnsSd::PublishHost(const char *aName, const uint8_t *aAddres
     SuccessOrExit(error = DNSServiceRegisterRecord(mHostsConnection, &hostRecord, kDNSServiceFlagsUnique,
                                                    kDNSServiceInterfaceIndexAny, fullName, kDNSServiceType_AAAA,
                                                    kDNSServiceClass_IN, aAddressLength, aAddress, /* ttl */ 0,
-                                                   HandleHostRegisterResult, this));
+                                                   HandleRegisterHostResult, this));
     strcpy(newHost.mName, aName);
     newHost.mRecord = hostRecord;
     mHosts.push_back(newHost);
@@ -585,23 +588,23 @@ exit:
     return ret;
 }
 
-void PublisherMDnsSd::HandleHostRegisterResult(DNSServiceRef       aHostsConnection,
+void PublisherMDnsSd::HandleRegisterHostResult(DNSServiceRef       aHostsConnection,
                                                DNSRecordRef        aHostRecord,
                                                DNSServiceFlags     aFlags,
                                                DNSServiceErrorType aErrorCode,
                                                void *              aContext)
 {
-    static_cast<PublisherMDnsSd *>(aContext)->HandleHostRegisterResult(aHostsConnection, aHostRecord, aFlags,
+    static_cast<PublisherMDnsSd *>(aContext)->HandleRegisterHostResult(aHostsConnection, aHostRecord, aFlags,
                                                                        aErrorCode);
 }
 
-void PublisherMDnsSd::HandleHostRegisterResult(DNSServiceRef       aHostsConnection,
+void PublisherMDnsSd::HandleRegisterHostResult(DNSServiceRef       aHostsConnection,
                                                DNSRecordRef        aHostRecord,
                                                DNSServiceFlags     aFlags,
                                                DNSServiceErrorType aErrorCode)
 {
-    (void)aHostsConnection;
-    (void)aFlags;
+    OTBR_UNUSED_VARIABLE(aHostsConnection);
+    OTBR_UNUSED_VARIABLE(aFlags);
 
     auto host =
         std::find_if(mHosts.begin(), mHosts.end(), [&](const Host &aHost) { return aHost.mRecord == aHostRecord; });
