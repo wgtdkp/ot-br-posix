@@ -204,9 +204,12 @@ void AdvertisingProxy::AdvertisingHandler(const otSrpServerHost *aHost, uint32_t
 
         if (publishHost && !service->mIsDeleted)
         {
+            Mdns::Publisher::TxtList txtList;
+
             // TODO: TXT records.
+
             SuccessOrExit(error = mPublisher->PublishService(hostName.c_str(), service->mPort, serviceName.c_str(),
-                                                             serviceType.c_str(), nullptr));
+                                                             serviceType.c_str(), txtList));
         }
         else
         {
