@@ -91,6 +91,7 @@ LOCAL_CFLAGS += \
 LOCAL_CPPFLAGS += -std=c++14
 
 LOCAL_SRC_FILES := \
+	src/agent/advertising_proxy.cpp \
     src/agent/agent_instance.cpp \
     src/agent/instance_params.cpp \
     src/agent/border_agent.cpp \
