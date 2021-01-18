@@ -50,6 +50,13 @@ set(OT_PLATFORM_NETIF ON CACHE BOOL "enable platform netif" FORCE)
 set(OT_PLATFORM_UDP ON CACHE BOOL "enable platform UDP" FORCE)
 set(OT_UDP_FORWARD OFF CACHE BOOL "diable udp forward" FORCE)
 
+if (OTBR_ADVERTISING_PROXY)
+    set(OT_SRP_SERVER ON CACHE BOOL "enable SRP server" FORCE)
+    set(OT_ECDSA ON CACHE BOOL "enable ECDSA" FORCE)
+    set(OT_SERVICE ON CACHE BOOL "enable service" FORCE)
+    set(OT_EXTERNAL_HEAP ON CACHE BOOL "enable external heap" FORCE)
+endif()
+
 list(APPEND OT_PLATFORM_DEFINES "-DOPENTHREAD_CONFIG_POSIX_SETTINGS_PATH=\"/var/lib/thread\"")
 
 add_subdirectory(repo EXCLUDE_FROM_ALL)

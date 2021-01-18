@@ -51,6 +51,46 @@ namespace otbr {
 
 namespace Mdns {
 
+static otbrError DNSErrorToOtbrError(DNSServiceErrorType aError)
+{
+    otbrError error;
+
+    switch (aError)
+    {
+    case kDNSServiceErr_NoError:
+        error = OTBR_ERROR_NONE;
+        break;
+
+    case kDNSServiceErr_NoSuchKey:
+    case kDNSServiceErr_NoSuchName:
+    case kDNSServiceErr_NoSuchRecord:
+        error = OTBR_ERROR_NOT_FOUND;
+        break;
+
+    case kDNSServiceErr_Invalid:
+    case kDNSServiceErr_BadParam:
+    case kDNSServiceErr_BadFlags:
+    case kDNSServiceErr_BadInterfaceIndex:
+        error = OTBR_ERROR_INVALID_ARGS;
+        break;
+
+    case kDNSServiceErr_AlreadyRegistered:
+    case kDNSServiceErr_NameConflict:
+        error = OTBR_ERROR_DUPLICATED;
+        break;
+
+    case kDNSServiceErr_Unsupported:
+        error = OTBR_ERROR_NOT_IMPLEMENTED;
+        break;
+
+    default:
+        error = OTBR_ERROR_MDNS;
+        break;
+    }
+
+    return error;
+}
+
 static const char *DNSErrorToString(DNSServiceErrorType aError)
 {
     switch (aError)
@@ -313,6 +353,8 @@ void PublisherMDnsSd::HandleServiceRegisterResult(DNSServiceRef         aService
                                                   const char *          aType,
                                                   const char *          aDomain)
 {
+    otbrError error = DNSErrorToOtbrError(aError);
+
     otbrLog(OTBR_LOG_INFO, "Got a reply for service %s.%s%s", aName, aType, aDomain);
 
     if (aError == kDNSServiceErr_NoError)
@@ -333,6 +375,8 @@ void PublisherMDnsSd::HandleServiceRegisterResult(DNSServiceRef         aService
         otbrLog(OTBR_LOG_ERR, "Failed to register service %s: %s", aName, DNSErrorToString(aError));
         DiscardService(aName, aType, aServiceRef);
     }
+
+    mServiceHandler(aName, aType, error, mServiceHandlerContext);
 }
 
 void PublisherMDnsSd::DiscardService(const char *aName, const char *aType, DNSServiceRef aServiceRef)
@@ -433,8 +477,14 @@ otbrError PublisherMDnsSd::PublishService(const char *   aHostName,
     {
         if (!strncmp(it->mName, aName, sizeof(it->mName)) && !strncmp(it->mType, aType, sizeof(it->mType)))
         {
-            otbrLog(OTBR_LOG_INFO, "MDNS remove current service %s", aName);
-            DNSServiceUpdateRecord(it->mService, nullptr, 0, static_cast<uint16_t>(cur - txt), txt, 0);
+            otbrLog(OTBR_LOG_INFO, "MDNS update current service %s", aName);
+            SuccessOrExit(
+                error = DNSServiceUpdateRecord(it->mService, nullptr, 0, static_cast<uint16_t>(cur - txt), txt, 0));
+
+            if (mServiceHandler != nullptr)
+            {
+                mServiceHandler(aName, aType, DNSErrorToOtbrError(error), mServiceHandlerContext);
+            }
             ExitNow();
         }
     }
@@ -489,6 +539,10 @@ otbrError PublisherMDnsSd::PublishHost(const char *aName, const uint8_t *aAddres
             otbrLog(OTBR_LOG_INFO, "mDNS update host %s", aName);
             SuccessOrExit(error = DNSServiceUpdateRecord(mHostsConnection, host.mRecord, /* flags */ 0, aAddressLength,
                                                          aAddress, /* ttl */ 0));
+            if (mHostHandler != nullptr)
+            {
+                mHostHandler(aName, DNSErrorToOtbrError(error), mHostHandlerContext);
+            }
             ExitNow();
         }
     }
@@ -554,7 +608,10 @@ void PublisherMDnsSd::HandleRegisterHostResult(DNSServiceRef       aHostsConnect
 
     auto host =
         std::find_if(mHosts.begin(), mHosts.end(), [&](const Host &aHost) { return aHost.mRecord == aHostRecord; });
-    assert(host != mHosts.end());
+
+    VerifyOrExit(host != mHosts.end());
+
+    otbrLog(OTBR_LOG_INFO, "Got a reply for host %s.%s", host->mName, mDomain);
 
     if (aErrorCode == kDNSServiceErr_NoError)
     {
@@ -564,7 +621,16 @@ void PublisherMDnsSd::HandleRegisterHostResult(DNSServiceRef       aHostsConnect
     {
         otbrLog(OTBR_LOG_WARNING, "Failed to register host %s for mdnssd error: %s", host->mName,
                 DNSErrorToString(aErrorCode));
+
+        mHosts.erase(host);
     }
+
+    if (mHostHandler != nullptr)
+    {
+        mHostHandler(host->mName, DNSErrorToOtbrError(aErrorCode), mHostHandlerContext);
+    }
+exit:
+    return;
 }
 
 otbrError PublisherMDnsSd::MakeFullName(char *aFullName, size_t aFullNameLength, const char *aName)

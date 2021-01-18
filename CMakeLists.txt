@@ -32,12 +32,13 @@ project(openthread-br VERSION 0.2.0)
 
 add_library(otbr-config INTERFACE)
 
-option(OTBR_BACKBONE_ROUTER  "Build Backbone Router" OFF)
-option(OTBR_DBUS             "Build DBus support" OFF)
-option(OTBR_OPENWRT          "Build OpenWrt support" OFF)
-option(OTBR_UNSECURE_JOIN    "Enable unsecure joining" OFF)
-option(OTBR_WEB              "Build Web GUI" OFF)
-option(OTBR_REST             "Build Rest Server" OFF)
+option(OTBR_ADVERTISING_PROXY   "Enable Advertising Proxy" OFF)
+option(OTBR_BACKBONE_ROUTER     "Enable Backbone Router" OFF)
+option(OTBR_DBUS                "Enable DBus support" OFF)
+option(OTBR_OPENWRT             "Enable OpenWrt support" OFF)
+option(OTBR_UNSECURE_JOIN       "Enable unsecure joining" OFF)
+option(OTBR_WEB                 "Enable Web GUI" OFF)
+option(OTBR_REST                "Enable Rest Server" OFF)
 
 
 if(NOT CMAKE_C_STANDARD)
@@ -91,6 +92,12 @@ endif()
 
 find_package(PkgConfig)
 include(GNUInstallDirs)
+
+if (OTBR_ADVERTISING_PROXY)
+    target_compile_definitions(otbr-config INTERFACE
+            OTBR_ENABLE_ADVERTISING_PROXY=1
+    )
+endif()
 
 if (OTBR_BACKBONE_ROUTER)
     target_compile_definitions(otbr-config INTERFACE
