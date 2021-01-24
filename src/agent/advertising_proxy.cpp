@@ -136,6 +136,8 @@ otbrError AdvertisingProxy::Start(otInstance *aInstance)
     mPublisher->SetPublishServiceHandler(PublishServiceHandler, this);
     mPublisher->SetPublishHostHandler(PublishHostHandler, this);
 
+    otbrLog(OTBR_LOG_INFO, "Advertising Proxy Started");
+
     return OTBR_ERROR_NONE;
 }
 
@@ -149,6 +151,8 @@ void AdvertisingProxy::Stop()
     {
         otSrpServerSetServiceUpdateHandler(mInstance, nullptr, nullptr);
     }
+
+    otbrLog(OTBR_LOG_INFO, "Advertising Proxy Stopped");
 }
 
 void AdvertisingProxy::AdvertisingHandler(const otSrpServerHost *aHost, uint32_t aTimeout, void *aContext)
@@ -166,15 +170,15 @@ void AdvertisingProxy::AdvertisingHandler(const otSrpServerHost *aHost, uint32_t
     std::string               hostDomain;
     const otIp6Address *      hostAddress;
     uint8_t                   hostAddressNum;
-    bool                      publishHost;
+    bool                      hostDeleted;
     const otSrpServerService *service;
 
-    otbrLog(OTBR_LOG_INFO, "advertising SRP service updates %p", aHost);
+    otbrLog(OTBR_LOG_INFO, "advertising SRP service updates: host=%s", otSrpServerHostGetFullName(aHost));
 
     hostAddress = otSrpServerHostGetAddresses(aHost, &hostAddressNum);
-    publishHost = hostAddressNum > 0;
+    hostDeleted = otSrpServerHostIsDeleted(aHost);
 
-    update.mCount += publishHost;
+    update.mCount += !hostDeleted;
 
     service = nullptr;
     while ((service = otSrpServerHostGetNextService(aHost, service)) != nullptr)
@@ -185,7 +189,7 @@ void AdvertisingProxy::AdvertisingHandler(const otSrpServerHost *aHost, uint32_t
 
     SuccessOrExit(error = SplitFullHostName(otSrpServerHostGetFullName(aHost), hostName, hostDomain));
 
-    if (publishHost)
+    if (!hostDeleted)
     {
         // TODO: select a preferred address.
         SuccessOrExit(error =
@@ -199,14 +203,16 @@ void AdvertisingProxy::AdvertisingHandler(const otSrpServerHost *aHost, uint32_t
     service = nullptr;
     while ((service = otSrpServerHostGetNextService(aHost, service)) != nullptr)
     {
+        const char * fullName = otSrpServerServiceGetFullName(service);
         std::string serviceName;
         std::string serviceType;
         std::string serviceDomain;
 
-        SuccessOrExit(error = SplitFullServiceName(otSrpServerServiceGetFullName(service), serviceName, serviceType,
-                                                   serviceDomain));
+        otbrLog(OTBR_LOG_INFO, "advertising SRP service: %s", fullName);
 
-        if (publishHost && !otSrpServerServiceIsDeleted(service))
+        SuccessOrExit(error = SplitFullServiceName(fullName, serviceName, serviceType, serviceDomain));
+
+        if (!hostDeleted && !otSrpServerServiceIsDeleted(service))
         {
             Mdns::Publisher::TxtList txtList;
 
@@ -242,6 +248,8 @@ void AdvertisingProxy::PublishServiceHandler(const char *aName, const char *aTyp
 {
     otbrError   error    = OTBR_ERROR_NONE;
     std::string normType = aType;
+
+    otbrLog(OTBR_LOG_INFO, "got registering service %s result: %d", aName, aError);
 
     if (normType.back() == '.')
     {
@@ -291,6 +299,8 @@ void AdvertisingProxy::PublishHostHandler(const char *aName, otbrError aError, v
 void AdvertisingProxy::PublishHostHandler(const char *aName, otbrError aError)
 {
     otbrError error = OTBR_ERROR_NONE;
+
+    otbrLog(OTBR_LOG_INFO, "got registering host %s result: %d", aName, aError);
 
     for (auto update = mOutstandingUpdates.begin(); update != mOutstandingUpdates.end(); ++update)
     {
