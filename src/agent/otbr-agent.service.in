@@ -4,6 +4,10 @@ ConditionPathExists=@CMAKE_INSTALL_FULL_SBINDIR@/otbr-agent
 
 [Service]
 EnvironmentFile=-@CMAKE_INSTALL_FULL_SYSCONFDIR@/default/otbr-agent
+# The accept_ra configuration is easily overwritten by other network service.
+# Let's force set it before starting the otbr-agent service.
+ExecStartPre=/bin/sh -c "echo 2 | tee /proc/sys/net/ipv6/conf/@OTBR_INFRA_IF_NAME@/accept_ra"
+ExecStartPre=/bin/sh -c "echo 64 | tee /proc/sys/net/ipv6/conf/@OTBR_INFRA_IF_NAME@/accept_ra_rt_info_max_plen"
 ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/otbr-agent $OTBR_AGENT_OPTS
 Restart=on-failure
 RestartSec=5

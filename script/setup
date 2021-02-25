@@ -33,6 +33,7 @@
 # shellcheck source=script/_initrc
 . "$(dirname "$0")"/_initrc
 . script/_otbr
+. script/_accept_ra
 . script/_ipforward
 . script/_nat64
 . script/_dns64
@@ -54,8 +55,12 @@ main()
     nat64_uninstall
     dns64_uninstall
     ipforward_uninstall
+    accept_ra_uninstall
 
+    accept_ra_install
+    accept_ra_enable
     ipforward_install
+    ipforward_enable
     nat64_install
     dns64_install
     network_manager_install

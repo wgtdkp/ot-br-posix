@@ -75,14 +75,7 @@ ENV OTBR_NORELEASE_DEPS \
 
 RUN apt-get update \
   && apt-get install --no-install-recommends -y $OTBR_DOCKER_REQS $OTBR_DOCKER_DEPS \
-  && [ "${OT_BACKBONE_CI}" != "1" ] || ( \
-    apt-get install --no-install-recommends -y $OTBR_OT_BACKBONE_CI_DEPS \
-    && MDNS_RESPONDER_SOURCE_NAME=mDNSResponder-878.30.4 \
-    && wget -4 --no-check-certificate https://opensource.apple.com/tarballs/mDNSResponder/$MDNS_RESPONDER_SOURCE_NAME.tar.gz \
-    && tar xvf $MDNS_RESPONDER_SOURCE_NAME.tar.gz \
-    && cd $MDNS_RESPONDER_SOURCE_NAME/mDNSPosix \
-    && make os=linux && sudo make install os=linux \
-    && cd - && rm -rf $MDNS_RESPONDER_SOURCE_NAME) \
+  && [ "${OT_BACKBONE_CI}" != "1" ] || apt-get install --no-install-recommends -y $OTBR_OT_BACKBONE_CI_DEPS \
   && ln -fs /usr/share/zoneinfo/UTC /etc/localtime \
   && ./script/bootstrap \
   && ./script/setup \

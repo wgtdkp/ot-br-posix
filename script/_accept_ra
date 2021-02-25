@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#  Copyright (c) 2017, The OpenThread Authors.
+#  Copyright (c) 2021, The OpenThread Authors.
 #  All rights reserved.
 #
 #  Redistribution and use in source and binary forms, with or without
@@ -27,38 +27,33 @@
 #  POSSIBILITY OF SUCH DAMAGE.
 #
 #   Description:
-#       This script re-initializes the project, then builds and installs border
-#       router services and dependencies.
+#       This script manipulates accept_ra* configurations.
+#
+#   Environments:
+#   - INFRA_IF_NAME: The infrastruture interface name on which the otbr-agent will
+#                    will be running. This is usually "wlan0" for WiFi link and
+#                    "eth0" for Ethernet link. "wlan0" will be used if not specified.
 #
 
-# shellcheck source=script/_initrc
-. "$(dirname "$0")"/_initrc
-. script/_otbr
-. script/_accept_ra
-. script/_ipforward
-. script/_nat64
-. script/_dns64
-. script/_dhcpv6_pd
+INFRA_IF_NAME="${INFRA_IF_NAME:-wlan0}"
 
-main()
+readonly SYSCTL_ACCEPT_RA=/etc/sysctl.d/60-otbr-accept-ra.conf
+
+accept_ra_install()
 {
-    ./script/bootstrap
-
-    . "$BEFORE_HOOK"
-    otbr_uninstall
-    dhcpv6_pd_uninstall
-    nat64_uninstall
-    dns64_uninstall
-    ipforward_uninstall
-    accept_ra_uninstall
-
-    accept_ra_install
-    ipforward_install
-    nat64_install
-    dns64_install
-    dhcpv6_pd_install
-    otbr_update
-    . "$AFTER_HOOK"
+    sudo tee $SYSCTL_ACCEPT_RA <<EOF
+net.ipv6.conf.${INFRA_IF_NAME}.accept_ra = 2
+net.ipv6.conf.${INFRA_IF_NAME}.accept_ra_rt_info_max_plen = 64
+EOF
 }
 
-main
+accept_ra_uninstall()
+{
+    test ! -f $SYSCTL_ACCEPT_RA || sudo rm -v $SYSCTL_ACCEPT_RA
+}
+
+accept_ra_enable()
+{
+    echo 2 | sudo tee /proc/sys/net/ipv6/conf/${INFRA_IF_NAME}/accept_ra || die 'Failed to enable IPv6 RA!'
+    echo 64 | sudo tee /proc/sys/net/ipv6/conf/${INFRA_IF_NAME}/accept_ra_rt_info_max_plen || die 'Failed to enable IPv6 RIO!'
+}

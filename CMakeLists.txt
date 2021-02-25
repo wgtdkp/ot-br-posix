@@ -27,12 +27,15 @@
 #
 
 cmake_minimum_required(VERSION 3.10.2)
-project(openthread-br VERSION 0.2.0)
+project(openthread-br VERSION 0.3.0)
 
 
 add_library(otbr-config INTERFACE)
 
-option(OTBR_SRP_ADVERTISING_PROXY   "Enable Advertising Proxy" OFF)
+set(OTBR_INFRA_IF_NAME "wlan0" CACHE STRING "The infrastructure interface name")
+
+option(OTBR_BORDER_ROUTING          "Enable Border Routing Manager" OFF)
+option(OTBR_SRP_ADVERTISING_PROXY   "Enable SRP server and Advertising Proxy" OFF)
 option(OTBR_BACKBONE_ROUTER         "Enable Backbone Router" OFF)
 option(OTBR_DBUS                    "Enable DBus support" OFF)
 option(OTBR_OPENWRT                 "Enable OpenWrt support" OFF)

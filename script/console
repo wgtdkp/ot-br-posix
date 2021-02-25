@@ -29,12 +29,23 @@
 #   Description:
 #       This script starts all border router services in console mode.
 #
+#   Environments:
+#   - INFRA_IF_NAME: The infrastruture interface name on which the otbr-agent will
+#                    will be running. This is usually "wlan0" for WiFi link and
+#                    "eth0" for Ethernet link. "wlan0" will be used if not specified.
+#   - TUN:           The tun interface created for Thread. "wpan0" will be used if not specified.
+#   - RADIO_URL:     The radio device URL. "spinel+hdlc+uart:///dev/ttyUSB0" will be used
+#                    if not specified.
+#
 
 # shellcheck source=script/_initrc
 . "$(dirname "$0")"/_initrc
 # shellcheck source=script/_ipforward
 . script/_ipforward
+# shellcheck source=script/_accept_ra
+. script/_accept_ra
 
+readonly INFRA_IF_NAME="${INFRA_IF_NAME:-wlan0}"
 readonly TUN="${TUN:-wpan0}"
 readonly RADIO_URL="${RADIO_URL:-spinel+hdlc+uart:///dev/ttyUSB0}"
 
@@ -59,6 +70,7 @@ main()
     killall_services
 
     trap on_exit INT TERM EXIT
+    accept_ra_enable
     ipforward_enable
     sudo sh -s <<EOF
 otbr-agent -I $TUN "${RADIO_URL}" &
