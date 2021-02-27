@@ -359,3 +359,30 @@ dhcpv6_pd_uninstall()
         fi
     fi
 }
+
+# This function disables IPv6 support in dhcpcd.
+#
+# dhcpcd on raspberry Pi enables IPv6 support by default. The problem with
+# dhcpcd is that it desn't support Route Information Option (RIO), so we need
+# to rely on the kernel implementation. dhcpcd with force set accept_ra to 0
+# for all interfaces it is currently running on, if IPv6 is enable. This is
+# conflict with our accept_ra* configurations.
+#
+dhcpcd_disable_ipv6()
+{
+    if [ -f $DHCPCD_CONF ]; then
+    sudo cp $DHCPCD_CONF $DHCPCD_CONF_BACKUP
+    sudo tee -a $DHCPCD_CONF <<EOF
+noipv6
+noipv6rs
+EOF
+    fi
+}
+
+# This function enables IPv6 support in dhcpcd.
+dhcpcd_enable_ipv6()
+{
+    if [ -f $DHCPCD_CONF_BACKUP ]; then
+        sudo cp  $DHCPCD_CONF_BACKUP $DHCPCD_CONF
+    fi
+}

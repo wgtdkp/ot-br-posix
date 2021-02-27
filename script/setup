@@ -56,7 +56,9 @@ main()
     dns64_uninstall
     ipforward_uninstall
     accept_ra_uninstall
+    dhcpcd_enable_ipv6
 
+    dhcpcd_disable_ipv6
     accept_ra_install
     accept_ra_enable
     ipforward_install

@@ -235,7 +235,6 @@ enable_accept_ra()
 {
     log "Enable accepting Router Advertisements on the interface: '\${IFNAME}'"
     sysctl -w net.ipv6.conf.\${IFNAME}.accept_ra=2
-    sysctl -w net.ipv6.conf.\${IFNAME}.accept_ra_rt_info_max_plen=64
 }
 
 kill_dnsmasq()
