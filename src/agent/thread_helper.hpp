@@ -51,9 +51,7 @@
 #include "common/logging.hpp"
 
 namespace otbr {
-namespace Ncp {
-class ControllerOpenThread;
-}
+class ThreadController;
 } // namespace otbr
 
 namespace otbr {
@@ -69,14 +67,7 @@ public:
     using ScanHandler       = std::function<void(otError, const std::vector<otActiveScanResult> &)>;
     using ResultHandler     = std::function<void(otError)>;
 
-    /**
-     * The constructor of a Thread helper.
-     *
-     * @param[in]   aInstance  The Thread instance.
-     * @param[in]   aNcp       The ncp controller.
-     *
-     */
-    ThreadHelper(otInstance *aInstance, otbr::Ncp::ControllerOpenThread *aNcp);
+    void Init(otInstance *aInstance, otbr::ThreadController *aThreadController);
 
     /**
      * This method adds a callback for device role change.
@@ -217,7 +208,7 @@ private:
 
     otInstance *mInstance;
 
-    otbr::Ncp::ControllerOpenThread *mNcp;
+    otbr::ThreadController *mThreadController;
 
     ScanHandler                     mScanHandler;
     std::vector<otActiveScanResult> mScanResults;

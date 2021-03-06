@@ -33,15 +33,15 @@ add_executable(otbr-agent
     agent_instance.hpp
     border_agent.cpp
     border_agent.hpp
-    main.cpp
-    ncp.hpp
-    uris.hpp
-    ncp_openthread.cpp
-    ncp_openthread.hpp
-    thread_helper.cpp
-    thread_helper.hpp
     instance_params.cpp
     instance_params.hpp
+    main.cpp
+    thread_controller.cpp
+    thread_controller.hpp
+    thread_helper.cpp
+    thread_helper.hpp
+    thread_listener.hpp
+    uris.hpp
 )
 
 target_link_libraries(otbr-agent PRIVATE

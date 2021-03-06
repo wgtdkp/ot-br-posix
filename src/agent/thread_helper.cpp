@@ -28,11 +28,11 @@
 
 #include "agent/thread_helper.hpp"
 
+#include <string>
+
 #include <assert.h>
 #include <limits.h>
 #include <string.h>
-
-#include <string>
 
 #include <openthread/border_router.h>
 #include <openthread/channel_manager.h>
@@ -41,7 +41,7 @@
 #include <openthread/thread_ftd.h>
 #include <openthread/platform/radio.h>
 
-#include "agent/ncp_openthread.hpp"
+#include "agent/thread_controller.hpp"
 #include "common/byteswap.hpp"
 #include "common/code_utils.hpp"
 #include "common/logging.hpp"
@@ -49,10 +49,10 @@
 namespace otbr {
 namespace agent {
 
-ThreadHelper::ThreadHelper(otInstance *aInstance, otbr::Ncp::ControllerOpenThread *aNcp)
-    : mInstance(aInstance)
-    , mNcp(aNcp)
+void ThreadHelper::Init(otInstance *aInstance, otbr::ThreadController *aThreadController)
 {
+    mInstance = aInstance;
+    mThreadController = aThreadController;
 }
 
 void ThreadHelper::StateChangedCallback(otChangedFlags aFlags)
@@ -395,7 +395,7 @@ otError ThreadHelper::PermitUnsecureJoin(uint16_t aPort, uint32_t aSeconds)
             mUnsecurePortCloseTime[aPort] = triggerTime;
         }
 
-        mNcp->PostTimerTask(triggerTime, [this, aPort]() {
+        mThreadController->PostTimerTask(triggerTime, [this, aPort]() {
             auto         now = std::chrono::steady_clock::now();
             otExtAddress noneAddress;
 

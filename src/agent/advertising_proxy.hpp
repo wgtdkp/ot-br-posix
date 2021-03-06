@@ -41,7 +41,7 @@
 #include <openthread/instance.h>
 #include <openthread/srp_server.h>
 
-#include "agent/ncp_openthread.hpp"
+#include "agent/thread_controller.hpp"
 #include "mdns/mdns.hpp"
 
 namespace otbr {
