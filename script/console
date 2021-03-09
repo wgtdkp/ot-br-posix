@@ -63,11 +63,12 @@ main()
     trap on_exit INT TERM EXIT
     accept_ra_enable
     ipforward_enable
-    sudo sh -s <<EOF
-otbr-agent -I $TUN -B ${INFRA_IF_NAME} "${RADIO_URL}" &
-otbr-web -I $TUN &
-wait
-EOF
+    sudo otbr-agent -I $TUN -B -d 7 -v ${INFRA_IF_NAME} "${RADIO_URL}"
+#    sudo sh -s <<EOF
+#otbr-agent -I $TUN -B ${INFRA_IF_NAME} "${RADIO_URL}" &
+#otbr-web -I $TUN &
+#wait
+#EOF
 }
 
 main
