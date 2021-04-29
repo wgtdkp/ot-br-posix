@@ -41,7 +41,7 @@ using std::chrono::seconds;
 using std::chrono::steady_clock;
 
 namespace otbr {
-namespace rest {
+namespace Rest {
 
 // The timeout (in microseconds) since a connection is in wait callback state
 static const uint32_t kCallbackTimeout = 10000000;
@@ -79,7 +79,7 @@ void Connection::UpdateReadFdSet(fd_set &aReadFdSet, int &aMaxFd) const
     if (mState == ConnectionState::kReadWait || mState == ConnectionState::kInit)
     {
         FD_SET(mFd, &aReadFdSet);
-        aMaxFd = aMaxFd < mFd ? mFd : aMaxFd;
+        aMaxFd = std::max(aMaxFd, mFd);
     }
 }
 
@@ -88,7 +88,7 @@ void Connection::UpdateWriteFdSet(fd_set &aWriteFdSet, int &aMaxFd) const
     if (mState == ConnectionState::kWriteWait)
     {
         FD_SET(mFd, &aWriteFdSet);
-        aMaxFd = aMaxFd < mFd ? mFd : aMaxFd;
+        aMaxFd = std::max(aMaxFd, mFd);
     }
 }
 
@@ -153,8 +153,6 @@ void Connection::Disconnect(void)
 
 void Connection::Process(const MainloopContext &aMainloop)
 {
-    otbrError error = OTBR_ERROR_NONE;
-
     switch (mState)
     {
     // Initial state, directly read for the first time.
@@ -171,11 +169,6 @@ void Connection::Process(const MainloopContext &aMainloop)
         break;
     default:
         assert(false);
-    }
-
-    if (error != OTBR_ERROR_NONE)
-    {
-        Disconnect();
     }
 }
 
@@ -217,16 +210,18 @@ void Connection::ProcessWaitRead(const fd_set &aReadFdSet)
     VerifyOrExit(received > 0 || (received == -1 && (err == EAGAIN || err == EWOULDBLOCK)), error = OTBR_ERROR_REST);
 
 exit:
+
     if (error != OTBR_ERROR_NONE)
     {
         if (received < 0)
         {
-            mResource->ErrorHandler(mResponse, HttpStatusCode::kStatusInternalServerError);
+            mResource->ErrorHandler(mResponse, HttpStatusCode::kStatusInternalServerError, "System call read error ");
             Write();
         }
         else
         {
-            mResource->ErrorHandler(mResponse, HttpStatusCode::kStatusRequestTimeout);
+            mResource->ErrorHandler(mResponse, HttpStatusCode::kStatusRequestTimeout,
+                                    "Read timeout or sender stop sending");
             Write();
         }
     }
@@ -257,7 +252,7 @@ exit:
 
     if (error != OTBR_ERROR_NONE)
     {
-        mResource->ErrorHandler(mResponse, HttpStatusCode::kStatusInternalServerError);
+        mResource->ErrorHandler(mResponse, HttpStatusCode::kStatusInternalServerError, "system call shutdown error");
         Write();
     }
 }
@@ -276,7 +271,7 @@ void Connection::ProcessWaitCallback(void)
     {
         if (duration >= kCallbackTimeout)
         {
-            mResource->ErrorHandler(mResponse, HttpStatusCode::kStatusInternalServerError);
+            mResource->ErrorHandler(mResponse, HttpStatusCode::kStatusInternalServerError, "Callback handler timeout");
             Write();
         }
     }
@@ -314,7 +309,6 @@ void Connection::Write(void)
         mWriteContent = mResponse.Serialize();
     }
 
-    // Check we do have something to write.
     VerifyOrExit(mWriteContent.size() > 0, error = OTBR_ERROR_REST);
 
     sendLength = write(mFd, mWriteContent.c_str(), mWriteContent.size());
@@ -335,7 +329,6 @@ void Connection::Write(void)
     {
         if (errno == EINTR)
         {
-            // Try again
             Write();
         }
         else
@@ -357,5 +350,5 @@ bool Connection::IsComplete() const
     return mState == ConnectionState::kComplete;
 }
 
-} // namespace rest
+} // namespace Rest
 } // namespace otbr

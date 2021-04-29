@@ -43,7 +43,7 @@ readonly RADIO_URL="${RADIO_URL:-spinel+hdlc+uart:///dev/ttyUSB0}"
 killall_services()
 {
     echo 'Closing services...'
-    sudo killall otbr-agent otbr-web || true
+    sudo killall otbr-agent || true
 }
 
 on_exit()
@@ -56,7 +56,7 @@ main()
 {
     . "$BEFORE_HOOK"
     if have systemctl; then
-        sudo systemctl stop otbr-web otbr-agent || true
+        sudo systemctl stop otbr-agent || true
     fi
     killall_services
 
@@ -65,7 +65,6 @@ main()
     ipforward_enable
     {
         echo "otbr-agent -I $TUN -B ${INFRA_IF_NAME} -d 7 -v '${RADIO_URL}' &"
-        without WEB_GUI || echo "otbr-web -I $TUN &"
         echo wait
     } | sudo sh -s
 }

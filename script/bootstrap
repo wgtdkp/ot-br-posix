@@ -83,7 +83,7 @@ install_packages_apt()
     without DHCPV6_PD || sudo apt-get install --no-install-recommends -y dhcpcd5
 
     # libjsoncpp
-    sudo apt-get install --no-install-recommends -y libjsoncpp1 libjsoncpp-dev
+    sudo apt-get install --no-install-recommends -y libjsoncpp-dev
 
     # reference device
     without REFERENCE_DEVICE || sudo apt-get install --no-install-recommends -y radvd dnsutils
@@ -92,7 +92,7 @@ install_packages_apt()
     without BACKBONE_ROUTER || sudo apt-get install --no-install-recommends -y iptables libnetfilter-queue1 libnetfilter-queue-dev
 
     # web dependencies
-    without WEB_GUI || command -v npm || sudo apt-get install -y nodejs npm
+    without WEB_GUI || command -v npm || sudo apt-get install -y nodejs npm nginx
 }
 
 install_packages_opkg()
@@ -116,11 +116,12 @@ install_packages_rpm()
     sudo $PM install -y tayga iptables
     sudo $PM install -y jsoncpp-devel
     sudo $PM install -y wget
+    sudo $PM install -y nginx
 }
 
 install_packages_brew()
 {
-    brew install boost cmake cpputest dbus jsoncpp ninja
+    brew install cmake cpputest dbus ninja nginx
 }
 
 install_packages_source()

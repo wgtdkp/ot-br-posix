@@ -41,10 +41,8 @@
 #include "rest/parser.hpp"
 #include "rest/resource.hpp"
 
-using std::chrono::steady_clock;
-
 namespace otbr {
-namespace rest {
+namespace Rest {
 
 /**
  * This class implements a Connection class of each socket connection.
@@ -62,7 +60,7 @@ public:
      * @param[in]   aFd         The file descriptor for the conneciton.
      *
      */
-    Connection(steady_clock::time_point aStartTime, Resource *aResource, int aFd);
+    Connection(std::chrono::steady_clock::time_point aStartTime, Resource *aResource, int aFd);
 
     /**
      * The desctructor destroys the connection instance.
@@ -114,7 +112,7 @@ private:
     void Disconnect(void);
 
     // Timestamp used for each check point of a connection
-    steady_clock::time_point mTimeStamp;
+    std::chrono::steady_clock::time_point mTimeStamp;
 
     // File descriptor for this connection
     int mFd;
@@ -138,7 +136,7 @@ private:
     std::string mWriteContent;
 };
 
-} // namespace rest
+} // namespace Rest
 } // namespace otbr
 
 #endif // OTBR_REST_CONNECTION_HPP_

@@ -34,15 +34,14 @@
 
 #include "utils/socket_utils.hpp"
 
-using std::chrono::duration_cast;
-using std::chrono::microseconds;
-using std::chrono::steady_clock;
+using otbr::Ncp::ControllerOpenThread;
 
 namespace otbr {
-namespace rest {
+namespace Rest {
 
 // Maximum number of connection a server support at the same time.
 static const uint32_t kMaxServeNum = 500;
+
 // Port number used by Rest server.
 static const uint32_t kPortNumber = 8081;
 
@@ -83,7 +82,6 @@ void RestWebServer::Update(MainloopContext &aMainloop)
         Connection *connection = it->second.get();
         connection->Update(aMainloop);
     }
-
     return;
 }
 
@@ -194,7 +192,6 @@ exit:
         }
         otbrLog(OTBR_LOG_ERR, "rest server accept error: %s %s", errorMessage.c_str(), strerror(err));
     }
-
     return error;
 }
 
@@ -229,5 +226,5 @@ exit:
     return ret;
 }
 
-} // namespace rest
+} // namespace Rest
 } // namespace otbr

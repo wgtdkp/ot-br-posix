@@ -43,6 +43,7 @@
 . script/_swapfile
 . script/_sudo_extend
 . script/_disable_services
+. script/_nginx_config_install
 
 main()
 {
@@ -67,6 +68,7 @@ main()
     dhcpv6_pd_install
     border_routing_install
     otbr_install
+    nginx_config_install
     . "$AFTER_HOOK"
 }
 
