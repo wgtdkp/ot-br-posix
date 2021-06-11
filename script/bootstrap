@@ -145,9 +145,9 @@ install_packages()
     # Install OT Commissioner.
     git clone git@github.com:openthread/ot-commissioner /tmp/ot-commissioner --depth=1
     cd /tmp/ot-commissioner
-    ./script/bootstrap.sh
+    sh ./script/bootstrap.sh
     mkdir -p build && cd build
-    cmake -GNinja -DBUILD_SHARED_LIBS=ON ..
+    cmake -GNinja -DOT_COMM_CCM=OFF -DOT_CCM_TEST=OFF -DOT_CCM_APP=OFF ..
     ninja -j4
     sudo ninja install
     rm -rf /tmp/ot-commissioner

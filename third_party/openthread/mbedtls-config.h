@@ -59,6 +59,7 @@
 #define MBEDTLS_ECJPAKE_C
 #define MBEDTLS_ECP_C
 #define MBEDTLS_ENTROPY_C
+#define MBEDTLS_ERROR_C
 #define MBEDTLS_HMAC_DRBG_C
 #define MBEDTLS_MD_C
 #define MBEDTLS_OID_C

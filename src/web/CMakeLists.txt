@@ -64,6 +64,10 @@ target_link_libraries(otbr-web PRIVATE
     pthread
     commissioner
     commissioner-common
+    fmtd
+    event_core
+    event_pthreads
+    mbedcrypto
 )
 install(
     TARGETS otbr-web
