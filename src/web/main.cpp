@@ -42,6 +42,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <commissioner/commissioner.hpp>
+
 #include "common/code_utils.hpp"
 #include "common/logging.hpp"
 #include "web/web-service/web_server.hpp"
@@ -78,6 +80,10 @@ int main(int argc, char **argv)
     int          ret            = 0;
     int          opt;
     uint16_t     port = OT_HTTP_PORT;
+
+    // Just test code to make sure that we are linking against the commissioner library.
+    ot::commissioner::CommissionerHandler handler;
+    auto commissioner = ot::commissioner::Commissioner::Create(handler);
 
     while ((opt = getopt(argc, argv, "d:I:p:va:")) != -1)
     {

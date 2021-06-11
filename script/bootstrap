@@ -141,6 +141,16 @@ install_packages()
     else
         install_packages_source
     fi
+
+    # Install OT Commissioner.
+    git clone git@github.com:openthread/ot-commissioner /tmp/ot-commissioner --depth=1
+    cd /tmp/ot-commissioner
+    ./script/bootstrap.sh
+    mkdir -p build && cd build
+    cmake -GNinja -DBUILD_SHARED_LIBS=ON ..
+    ninja -j4
+    sudo ninja install
+    rm -rf /tmp/ot-commissioner
 }
 
 main()

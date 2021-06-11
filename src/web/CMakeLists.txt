@@ -62,6 +62,8 @@ target_link_libraries(otbr-web PRIVATE
     mbedtls
     ${Boost_LIBRARIES}
     pthread
+    commissioner
+    commissioner-common
 )
 install(
     TARGETS otbr-web
