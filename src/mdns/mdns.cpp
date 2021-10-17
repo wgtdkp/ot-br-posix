@@ -39,56 +39,37 @@ namespace otbr {
 
 namespace Mdns {
 
-bool Publisher::IsServiceTypeEqual(const char *aFirstType, const char *aSecondType)
+bool Publisher::IsServiceTypeEqual(std::string aFirstType, std::string aSecondType)
 {
-    size_t firstLength  = strlen(aFirstType);
-    size_t secondLength = strlen(aSecondType);
-
-    if (firstLength > 0 && aFirstType[firstLength - 1] == '.')
+    if (!aFirstType.empty() && aFirstType.back() == '.')
     {
-        --firstLength;
-    }
-    if (secondLength > 0 && aSecondType[secondLength - 1] == '.')
-    {
-        --secondLength;
+        aFirstType.pop_back();
     }
 
-    return firstLength == secondLength && memcmp(aFirstType, aSecondType, firstLength) == 0;
+    if (!aSecondType.empty() && aSecondType.back() == '.')
+    {
+        aSecondType.pop_back();
+    }
+
+    return aFirstType == aSecondType;
 }
 
-otbrError Publisher::EncodeTxtData(const TxtList &aTxtList, uint8_t *aTxtData, uint16_t &aTxtLength)
+std::vector<uint8_t> Publisher::EncodeTxtData(const TxtList &aTxtList)
 {
-    otbrError error = OTBR_ERROR_NONE;
-    uint8_t * cur   = aTxtData;
+    std::vector<uint8_t> txtData;
 
     for (const auto &txtEntry : aTxtList)
     {
-        const char *   name        = txtEntry.mName.c_str();
-        const size_t   nameLength  = txtEntry.mName.length();
-        const uint8_t *value       = txtEntry.mValue.data();
-        const size_t   valueLength = txtEntry.mValue.size();
-        const size_t   entryLength = nameLength + 1 + valueLength;
+        const size_t entryLength = txtEntry.mName.size() + 1 + txtEntry.mValue.size();
+        // TODO(wgtdkp): check entryLength.
 
-        VerifyOrExit(nameLength > 0 && nameLength <= kMaxTextEntrySize, error = OTBR_ERROR_INVALID_ARGS);
-        VerifyOrExit(cur + entryLength + 1 <= aTxtData + aTxtLength, error = OTBR_ERROR_INVALID_ARGS);
-
-        cur[0] = static_cast<uint8_t>(entryLength);
-        ++cur;
-
-        memcpy(cur, name, nameLength);
-        cur += nameLength;
-
-        cur[0] = '=';
-        ++cur;
-
-        memcpy(cur, value, valueLength);
-        cur += valueLength;
+        txtData.push_back(static_cast<uint8_t>(entryLength));
+        txtData.insert(txtData.end(), txtEntry.mName.begin(), txtEntry.mName.end());
+        txtData.push_back('=');
+        txtData.insert(txtData.end(), txtEntry.mValue.begin(), txtEntry.mValue.end());
     }
 
-    aTxtLength = cur - aTxtData;
-
-exit:
-    return error;
+    return txtData;
 }
 
 } // namespace Mdns

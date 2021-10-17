@@ -150,7 +150,7 @@ public:
      * @returns A pointer to the AvahiPoll.
      *
      */
-    const AvahiPoll *GetAvahiPoll(void) const { return &mAvahiPoller; }
+    const AvahiPoll &GetAvahiPoll(void) const { return mAvahiPoller; }
 
 private:
     typedef std::vector<AvahiWatch *>   Watches;
@@ -187,168 +187,44 @@ private:
 class PublisherAvahi : public Publisher
 {
 public:
-    /**
-     * The constructor to initialize a Publisher.
-     *
-     * @param[in]   aProtocol           The protocol used for publishing. IPv4, IPv6 or both.
-     * @param[in]   aDomain             The domain of the host. nullptr to use default.
-     * @param[in]   aHandler            The function to be called when state changes.
-     * @param[in]   aContext            A pointer to application-specific context.
-     *
-     */
-    PublisherAvahi(int aProtocol, const char *aDomain, StateHandler aHandler, void *aContext);
-
+    PublisherAvahi(StateChangedCallback aStateChangedCallback);
     ~PublisherAvahi(void) override;
 
-    /**
-     * This method publishes or updates a service.
-     *
-     * @param[in]   aHostName           The name of the host which this service resides on. If NULL is provided,
-     *                                  this service resides on local host and it is the implementation to provide
-     *                                  specific host name. Otherwise, the caller MUST publish the host with method
-     *                                  PublishHost.
-     * @param[in]   aPort               The port number of this service.
-     * @param[in]   aName               The name of this service.
-     * @param[in]   aType               The type of this service.
-     * @param[in]   aSubTypeList        A list of service subtypes.
-     * @param[in]   aTxtList            A list of TXT name/value pairs.
-     *
-     * @retval  OTBR_ERROR_NONE     Successfully published or updated the service.
-     * @retval  OTBR_ERROR_ERRNO    Failed to publish or update the service.
-     *
-     */
-    otbrError PublishService(const char *       aHostName,
-                             uint16_t           aPort,
-                             const char *       aName,
-                             const char *       aType,
-                             const SubTypeList &aSubTypeList,
-                             const TxtList &    aTxtList) override;
-
-    /**
-     * This method un-publishes a service.
-     *
-     * @param[in]   aName               The name of this service.
-     * @param[in]   aType               The type of this service.
-     *
-     * @retval  OTBR_ERROR_NONE     Successfully un-published the service.
-     * @retval  OTBR_ERROR_ERRNO    Failed to un-publish the service.
-     *
-     */
-    otbrError UnpublishService(const char *aName, const char *aType) override;
-
-    /**
-     * This method publishes or updates a host.
-     *
-     * Publishing a host is advertising an AAAA RR for the host name. This method should be called
-     * before a service with non-null host name is published.
-     *
-     * @param[in]  aName           The name of the host.
-     * @param[in]  aAddress        The address of the host.
-     * @param[in]  aAddressLength  The length of @p aAddress.
-     *
-     * @retval  OTBR_ERROR_NONE     Successfully published or updated the host.
-     * @retval  OTBR_ERROR_ERRNO    Failed to publish or update the host.
-     *
-     */
-    otbrError PublishHost(const char *aName, const uint8_t *aAddress, uint8_t aAddressLength) override;
-
-    /**
-     * This method un-publishes a host.
-     *
-     * @param[in]  aName  A host name.
-     *
-     * @retval  OTBR_ERROR_NONE     Successfully un-published the host.
-     * @retval  OTBR_ERROR_ERRNO    Failed to un-publish the host.
-     *
-     * @note  All services reside on this host should be un-published by UnpublishService.
-     *
-     */
-    otbrError UnpublishHost(const char *aName) override;
-
-    /**
-     * This method subscribes a given service or service instance. If @p aInstanceName is not empty, this method
-     * subscribes the service instance. Otherwise, this method subscribes the service.
-     *
-     * mDNS implementations should use the `DiscoveredServiceInstanceCallback` function to notify discovered service
-     * instances.
-     *
-     * @note Discovery Proxy implementation guarantees no duplicate subscriptions for the same service or service
-     * instance.
-     *
-     * @param[in]  aType          The service type.
-     * @param[in]  aInstanceName  The service instance to subscribe, or empty to subscribe the service.
-     *
-     */
-    void SubscribeService(const std::string &aType, const std::string &aInstanceName) override;
-
-    /**
-     * This method unsubscribes a given service or service instance. If @p aInstanceName is not empty, this method
-     * unsubscribes the service instance. Otherwise, this method unsubscribes the service.
-     *
-     * @note Discovery Proxy implementation guarantees no redundant unsubscription for a service or service instance.
-     *
-     * @param[in]  aType          The service type.
-     * @param[in]  aInstanceName  The service instance to unsubscribe, or empty to unsubscribe the service.
-     *
-     */
-    void UnsubscribeService(const std::string &aType, const std::string &aInstanceName) override;
-
-    /**
-     * This method subscribes a given host.
-     *
-     * mDNS implementations should use the `DiscoveredHostCallback` function to notify discovered hosts.
-     *
-     * @note Discovery Proxy implementation guarantees no duplicate subscriptions for the same host.
-     *
-     * @param[in]  aHostName    The host name (without domain).
-     *
-     */
-    void SubscribeHost(const std::string &aHostName) override;
-
-    /**
-     * This method unsubscribes a given host.
-     *
-     * @note Discovery Proxy implementation guarantees no redundant unsubscription for a host.
-     *
-     * @param[in]  aHostName    The host name (without domain).
-     *
-     */
-    void UnsubscribeHost(const std::string &aHostName) override;
-
-    /**
-     * This method starts the mDNS service.
-     *
-     * @retval OTBR_ERROR_NONE  Successfully started mDNS service;
-     * @retval OTBR_ERROR_MDNS  Failed to start mDNS service.
-     *
-     */
     otbrError Start(void) override;
-
-    /**
-     * This method checks if publisher has been started.
-     *
-     * @retval true     Already started.
-     * @retval false    Not started.
-     *
-     */
-    bool IsStarted(void) const override;
-
-    /**
-     * This method stops the mDNS service.
-     *
-     */
-    void Stop(void) override;
+    bool      IsStarted(void) const override;
+    void      Stop(void) override;
+    otbrError PublishService(const std::string &    aHostName,
+                             uint16_t               aPort,
+                             const std::string &    aName,
+                             const std::string &    aType,
+                             const SubTypeList &    aSubTypeList,
+                             const TxtList &        aTxtList,
+                             PublishServiceCallback aCallback) override;
+    otbrError UnpublishService(const std::string &aName, const std::string &aType, ResultCallback aCallback) override;
+    otbrError PublishHost(const std::string &         aName,
+                          const std::vector<uint8_t> &aAddress,
+                          PublishHostCallback         aCallback) override;
+    otbrError UnpublishHost(const std::string &aName, ResultCallback aCallback) override;
+    void      SubscribeService(const std::string &aType,
+                               const std::string &aInstanceName,
+                               ResultCallback     aCallback) override;
+    void      UnsubscribeService(const std::string &aType,
+                                 const std::string &aInstanceName,
+                                 ResultCallback     aCallback) override;
+    void      SubscribeHost(const std::string &aHostName, ResultCallback aCallback) override;
+    void      UnsubscribeHost(const std::string &aHostName, ResultCallback aCallback) override;
 
 private:
     enum
     {
-        kMaxSizeOfTxtRecord   = 1024,
-        kMaxSizeOfServiceName = AVAHI_LABEL_MAX,
-        kMaxSizeOfHost        = AVAHI_LABEL_MAX,
-        kMaxSizeOfDomain      = AVAHI_LABEL_MAX,
-        kMaxSizeOfServiceType = AVAHI_LABEL_MAX,
-        kDefaultTtl           = 10,
+        // kMaxSizeOfTxtRecord   = 1024,
+        // kMaxSizeOfServiceName = AVAHI_LABEL_MAX,
+        // kMaxSizeOfHost        = AVAHI_LABEL_MAX,
+        // kMaxSizeOfDomain      = AVAHI_LABEL_MAX,
+        // kMaxSizeOfServiceType = AVAHI_LABEL_MAX,
+        // kDefaultTtl           = 10,
     };
+    static constexpr uint32_t kDefaultTtl = 10;
 
     struct Service
     {
@@ -356,12 +232,12 @@ private:
         std::string      mType;
         SubTypeList      mSubTypeList;
         std::string      mHostName;
-        uint16_t         mPort  = 0;
-        AvahiEntryGroup *mGroup = nullptr;
+        uint16_t         mPort = 0;
         TxtList          mTxtList;
+        AvahiEntryGroup *mGroup = nullptr;
     };
 
-    typedef std::vector<Service> Services;
+    using ServiceList = std::vector<Service>;
 
     struct Host
     {
@@ -370,20 +246,10 @@ private:
         AvahiEntryGroup *mGroup   = nullptr;
     };
 
-    struct Subscription
+    struct ServiceSubscription
     {
-        PublisherAvahi *mPublisherAvahi;
-
-        explicit Subscription(PublisherAvahi &aPublisherAvahi)
-            : mPublisherAvahi(&aPublisherAvahi)
-        {
-        }
-    };
-
-    struct ServiceSubscription : public Subscription
-    {
-        explicit ServiceSubscription(PublisherAvahi &aPublisherAvahi, std::string aType, std::string aInstanceName)
-            : Subscription(aPublisherAvahi)
+        ServiceSubscription(PublisherAvahi &aPublisherAvahi, std::string aType, std::string aInstanceName)
+            : mPublisher(aPublisherAvahi)
             , mType(std::move(aType))
             , mInstanceName(std::move(aInstanceName))
             , mServiceBrowser(nullptr)
@@ -446,6 +312,7 @@ private:
                                  AvahiStringList *      aTxt,
                                  AvahiLookupResultFlags aFlags);
 
+        PublisherAvahi &       mPublisher;
         std::string            mType;
         std::string            mInstanceName;
         DiscoveredInstanceInfo mInstanceInfo;
@@ -455,8 +322,8 @@ private:
 
     struct HostSubscription : public Subscription
     {
-        explicit HostSubscription(PublisherAvahi &aMDnsSd, std::string aHostName)
-            : Subscription(aMDnsSd)
+        HostSubscription(PublisherAvahi &aPublisherAvahi, std::string aHostName)
+            : mPublisher(aPublisherAvahi)
             , mHostName(std::move(aHostName))
             , mRecordBrowser(nullptr)
         {
@@ -487,31 +354,32 @@ private:
                                  size_t                 aSize,
                                  AvahiLookupResultFlags aFlags);
 
+        PublisherAvahi &    mPublisher;
         std::string         mHostName;
         DiscoveredHostInfo  mHostInfo;
         AvahiRecordBrowser *mRecordBrowser;
     };
 
-    typedef std::vector<Host>                Hosts;
-    typedef std::vector<ServiceSubscription> ServiceSubscriptionList;
-    typedef std::vector<HostSubscription>    HostSubscriptionList;
+    using HostList                = std::vector<Host>;
+    using ServiceSubscriptionList = std::vector<ServiceSubscription>;
+    using HostSubscriptionList    = std::vector<HostSubscription>;
 
     static void HandleClientState(AvahiClient *aClient, AvahiClientState aState, void *aContext);
     void        HandleClientState(AvahiClient *aClient, AvahiClientState aState);
 
-    Hosts::iterator FindHost(const char *aHostName);
-    otbrError       CreateHost(AvahiClient &aClient, const char *aHostName, Hosts::iterator &aOutHostIt);
+    HostList::iterator FindHost(const char *aHostName);
+    otbrError          CreateHost(AvahiClient &aClient, const char *aHostName, Hosts::iterator &aOutHostIt);
 
-    Services::iterator FindService(const char *aName, const char *aType);
-    Services::iterator FindService(AvahiEntryGroup *aGroup);
-    otbrError          CreateService(AvahiClient &       aClient,
-                                     const char *        aName,
-                                     const char *        aType,
-                                     Services::iterator &aOutServiceIt);
-    static bool        IsServiceOutdated(const Service &    aService,
-                                         const char *       aNewHostName,
-                                         uint16_t           aNewPort,
-                                         const SubTypeList &aNewSubTypeList);
+    ServiceList::iterator FindService(const char *aName, const char *aType);
+    ServiceList::iterator FindService(AvahiEntryGroup *aGroup);
+    otbrError             CreateService(AvahiClient &          aClient,
+                                        const char *           aName,
+                                        const char *           aType,
+                                        ServiceList::iterator &aOutServiceIt);
+    static bool           IsServiceOutdated(const Service &    aService,
+                                            const char *       aNewHostName,
+                                            uint16_t           aNewPort,
+                                            const SubTypeList &aNewSubTypeList);
 
     otbrError        CreateGroup(AvahiClient &aClient, AvahiEntryGroup *&aOutGroup);
     static otbrError ResetGroup(AvahiEntryGroup *aGroup);
@@ -520,7 +388,7 @@ private:
     static void      HandleGroupState(AvahiEntryGroup *aGroup, AvahiEntryGroupState aState, void *aContext);
     void             HandleGroupState(AvahiEntryGroup *aGroup, AvahiEntryGroupState aState);
     void             CallHostOrServiceCallback(AvahiEntryGroup *aGroup, otbrError aError) const;
-    otbrError        RetryPublishService(const Services::iterator &aServiceIt);
+    otbrError        RetryPublishService(const ServiceList::iterator &aServiceIt);
 
     static otbrError TxtListToAvahiStringList(const TxtList &   aTxtList,
                                               AvahiStringList * aBuffer,
@@ -534,15 +402,13 @@ private:
     void        OnHostResolved(HostSubscription &aHost);
     void        OnHostResolveFailed(const HostSubscription &aHost, int aErrorCode);
 
+    StateChangedCallback mStateChangedCallback;
+
     AvahiClient *mClient;
     Hosts        mHosts;
-    Services     mServices;
+    ServiceList  mServices;
     Poller       mPoller;
     int          mProtocol;
-    const char * mDomain;
-    State        mState;
-    StateHandler mStateHandler;
-    void *       mContext;
 
     ServiceSubscriptionList mSubscribedServices;
     HostSubscriptionList    mSubscribedHosts;

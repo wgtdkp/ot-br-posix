@@ -208,14 +208,10 @@ static const char *DNSErrorToString(DNSServiceErrorType aError)
     }
 }
 
-PublisherMDnsSd::PublisherMDnsSd(int aProtocol, const char *aDomain, StateHandler aHandler, void *aContext)
-    : mHostsRef(nullptr)
-    , mDomain(aDomain)
-    , mState(State::kIdle)
-    , mStateHandler(aHandler)
-    , mContext(aContext)
+PublisherMDnsSd::PublisherMDnsSd(StateChangedCallback aStateChangedCallback)
+    : mStateChangedCallback(aStateChangedCallback)
+    , mHostsRef(nullptr)
 {
-    OTBR_UNUSED_VARIABLE(aProtocol);
 }
 
 PublisherMDnsSd::~PublisherMDnsSd(void)
@@ -225,23 +221,23 @@ PublisherMDnsSd::~PublisherMDnsSd(void)
 
 otbrError PublisherMDnsSd::Start(void)
 {
-    mState = State::kReady;
-    mStateHandler(mContext, State::kReady);
+    mIsEnabled = true;
+    mStateChangedCallback(mIsEnabled);
     return OTBR_ERROR_NONE;
 }
 
 bool PublisherMDnsSd::IsStarted(void) const
 {
-    return mState == State::kReady;
+    return mIsEnabled;
 }
 
 void PublisherMDnsSd::Stop(void)
 {
-    VerifyOrExit(mState == State::kReady);
+    VerifyOrExit(mIsEnabled);
 
     for (Service &service : mServices)
     {
-        otbrLogInfo("Remove service %s.%s", service.mName, service.mType);
+        otbrLogInfo("Remove service %s.%s", service.mName.c_str(), service.mType.c_str());
         DNSServiceRefDeallocate(service.mService);
     }
     mServices.clear();
@@ -381,8 +377,9 @@ void PublisherMDnsSd::HandleServiceRegisterResult(DNSServiceRef         aService
                                                   const char *          aDomain,
                                                   void *                aContext)
 {
-    static_cast<PublisherMDnsSd *>(aContext)->HandleServiceRegisterResult(aService, aFlags, aError, aName, aType,
-                                                                          aDomain);
+    auto callbackContext = reinterpret_cast<PublishServiceCallbackContext *>(aContext);
+    callbackContext->mPublisher.HandleServiceRegisterResult(aService, aFlags, aError, aName, aType, aDomain,
+                                                            callbackContext->mPublisher);
 }
 
 void PublisherMDnsSd::HandleServiceRegisterResult(DNSServiceRef         aServiceRef,
@@ -426,7 +423,7 @@ void PublisherMDnsSd::HandleServiceRegisterResult(DNSServiceRef         aService
     if (mServiceHandler != nullptr)
     {
         // TODO: pass the renewed service instance name back to SRP server handler.
-        mServiceHandler(originalInstanceName.c_str(), aType, error, mServiceHandlerContext);
+        mServiceHandler(originalInstanceName, aType, error);
     }
 
 exit:
@@ -483,21 +480,22 @@ bool PublisherMDnsSd::IsServiceOutdated(const Service &service, const std::strin
     return service.mRegType != aNewRegType || service.mPort != aNewPort;
 }
 
-otbrError PublisherMDnsSd::PublishService(const char *       aHostName,
-                                          uint16_t           aPort,
-                                          const char *       aName,
-                                          const char *       aType,
-                                          const SubTypeList &aSubTypeList,
-                                          const TxtList &    aTxtList)
+void PublisherMDnsSd::PublishService(const std::string &    aHostName,
+                                     uint16_t               aPort,
+                                     const std::string &    aName,
+                                     const std::string &    aType,
+                                     const SubTypeList &    aSubTypeList,
+                                     const TxtList &        aTxtList,
+                                     PublishServiceCallback aCallback)
 {
-    otbrError       ret   = OTBR_ERROR_NONE;
-    int             error = 0;
-    uint8_t         txt[kMaxSizeOfTxtRecord];
-    uint16_t        txtLength  = sizeof(txt);
-    std::string     regType    = MakeRegType(aType, aSubTypeList);
-    ServiceIterator service    = FindPublishedService(aName, aType);
-    DNSServiceRef   serviceRef = nullptr;
-    char            fullHostName[kMaxSizeOfDomain];
+    PublishServiceCallbackContext *callbackContext = nullptr;
+    int                            error           = 0;
+    uint8_t                        txt[kMaxSizeOfTxtRecord];
+    uint16_t                       txtLength  = sizeof(txt);
+    std::string                    regType    = MakeRegType(aType, aSubTypeList);
+    ServiceIterator                service    = FindPublishedService(aName, aType);
+    DNSServiceRef                  serviceRef = nullptr;
+    char                           fullHostName[kMaxSizeOfDomain];
 
     if (aHostName != nullptr)
     {
@@ -531,18 +529,23 @@ otbrError PublisherMDnsSd::PublishService(const char *       aHostName,
         DiscardService(aName, aType, serviceRef);
     }
 
-    SuccessOrExit(error = DNSServiceRegister(&serviceRef, /* flags */ 0, kDNSServiceInterfaceIndexAny, aName,
-                                             regType.c_str(), mDomain, (aHostName != nullptr) ? fullHostName : nullptr,
-                                             htons(aPort), txtLength, txt, HandleServiceRegisterResult, this));
+    callbackContext = new PublishServiceCallbackContext{*this, aCallback};
+    SuccessOrExit(error =
+                      DNSServiceRegister(&serviceRef, /* flags */ 0, kDNSServiceInterfaceIndexAny, aName,
+                                         regType.c_str(), mDomain, (aHostName != nullptr) ? fullHostName : nullptr,
+                                         htons(aPort), txtLength, txt, HandleServiceRegisterResult, callbackContext));
     RecordService(aName, aType, regType.c_str(), aPort, serviceRef);
 
 exit:
     if (error != kDNSServiceErr_NoError)
     {
-        ret = OTBR_ERROR_MDNS;
+        if (callbackContext != nullptr)
+        {
+            delete callbackContext;
+        }
         otbrLogErr("Failed to publish service for mdnssd error: %s!", DNSErrorToString(error));
+        aCallback(aName, aType, OTBR_ERROR_MDNS);
     }
-    return ret;
 }
 
 otbrError PublisherMDnsSd::UnpublishService(const char *aName, const char *aType)
