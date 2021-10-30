@@ -294,7 +294,7 @@ void Poller::Process(const MainloopContext &aMainloop)
     }
 }
 
-PublisherAvahi::PublisherAvahi(int aProtocol, const char *aDomain, StateHandler aHandler, void *aContext)
+PublisherAvahi::PublisherAvahi(int aProtocol, const std::string &aDomain, StateHandler aHandler, void *aContext)
     : mClient(nullptr)
     , mProtocol(aProtocol == AF_INET6 ? AVAHI_PROTO_INET6
                                       : aProtocol == AF_INET ? AVAHI_PROTO_INET : AVAHI_PROTO_UNSPEC)
@@ -373,21 +373,16 @@ void PublisherAvahi::HandleGroupState(AvahiEntryGroup *aGroup, AvahiEntryGroupSt
         if (serviceIt != mServices.end())
         {
             Service &   service         = *serviceIt;
-            const char *hostName        = service.mHostName.c_str();
+            std::string hostName        = service.mHostName;
             char *      alternativeName = nullptr;
             uint16_t    port            = service.mPort;
 
             ResetGroup(service.mGroup);
-            if (service.mHostName == "")
-            {
-                hostName = nullptr;
-            }
             alternativeName = avahi_alternative_service_name(service.mName.c_str());
             service.mName   = alternativeName;
             avahi_free(alternativeName);
             service.mPort = 0; // To mark the service as outdated
-            PublishService(hostName, port, service.mName.c_str(), service.mType.c_str(), service.mSubTypeList,
-                           service.mTxtList);
+            PublishService(hostName, port, service.mName, service.mType, service.mSubTypeList, service.mTxtList);
         }
         break;
     }
@@ -434,18 +429,14 @@ void PublisherAvahi::CallHostOrServiceCallback(AvahiEntryGroup *aGroup, otbrErro
     }
 }
 
-PublisherAvahi::Hosts::iterator PublisherAvahi::FindHost(const char *aHostName)
+PublisherAvahi::Hosts::iterator PublisherAvahi::FindHost(const std::string &aHostName)
 {
-    assert(aHostName != nullptr);
-
     return std::find_if(mHosts.begin(), mHosts.end(),
-                        [aHostName](const Host &aHost) { return aHost.mHostName == aHostName; });
+                        [&aHostName](const Host &aHost) { return aHost.mHostName == aHostName; });
 }
 
-otbrError PublisherAvahi::CreateHost(AvahiClient &aClient, const char *aHostName, Hosts::iterator &aOutHostIt)
+otbrError PublisherAvahi::CreateHost(AvahiClient &aClient, const std::string &aHostName, Hosts::iterator &aOutHostIt)
 {
-    assert(aHostName != nullptr);
-
     otbrError error = OTBR_ERROR_NONE;
     Host      newHost;
 
@@ -459,14 +450,10 @@ exit:
     return error;
 }
 
-PublisherAvahi::Services::iterator PublisherAvahi::FindService(const char *aName, const char *aType)
+PublisherAvahi::Services::iterator PublisherAvahi::FindService(const std::string &aName, const std::string &aType)
 {
-    assert(aName != nullptr);
-    assert(aType != nullptr);
-
-    return std::find_if(mServices.begin(), mServices.end(), [aName, aType](const Service &aService) {
-        return aService.mName == aName && aService.mType == aType;
-    });
+    return std::find_if(mServices.begin(), mServices.end(),
+                        [&](const Service &aService) { return aService.mName == aName && aService.mType == aType; });
 }
 
 PublisherAvahi::Services::iterator PublisherAvahi::FindService(AvahiEntryGroup *aGroup)
@@ -476,13 +463,10 @@ PublisherAvahi::Services::iterator PublisherAvahi::FindService(AvahiEntryGroup *
 }
 
 otbrError PublisherAvahi::CreateService(AvahiClient &       aClient,
-                                        const char *        aName,
-                                        const char *        aType,
+                                        const std::string & aName,
+                                        const std::string & aType,
                                         Services::iterator &aOutServiceIt)
 {
-    assert(aName != nullptr);
-    assert(aType != nullptr);
-
     otbrError error = OTBR_ERROR_NONE;
     Service   newService;
 
@@ -498,7 +482,7 @@ exit:
 }
 
 bool PublisherAvahi::IsServiceOutdated(const Service &    aService,
-                                       const char *       aNewHostName,
+                                       const std::string &aNewHostName,
                                        uint16_t           aNewPort,
                                        const SubTypeList &aNewSubTypeList)
 {
@@ -618,18 +602,17 @@ void PublisherAvahi::HandleClientState(AvahiClient *aClient, AvahiClientState aS
     }
 }
 
-otbrError PublisherAvahi::PublishService(const char *       aHostName,
+otbrError PublisherAvahi::PublishService(const std::string &aHostName,
                                          uint16_t           aPort,
-                                         const char *       aName,
-                                         const char *       aType,
+                                         const std::string &aName,
+                                         const std::string &aType,
                                          const SubTypeList &aSubTypeList,
                                          const TxtList &    aTxtList)
 {
-    otbrError          error        = OTBR_ERROR_NONE;
-    int                avahiError   = 0;
-    Services::iterator serviceIt    = mServices.end();
-    const char *       safeHostName = (aHostName != nullptr) ? aHostName : "";
-    const char *       logHostName  = (aHostName != nullptr) ? aHostName : "localhost";
+    otbrError          error       = OTBR_ERROR_NONE;
+    int                avahiError  = 0;
+    Services::iterator serviceIt   = mServices.end();
+    const std::string  logHostName = !aHostName.empty() ? aHostName : "localhost";
     std::string        fullHostName;
     // aligned with AvahiStringList
     AvahiStringList  buffer[(kMaxSizeOfTxtRecord - 1) / sizeof(AvahiStringList) + 1];
@@ -639,13 +622,10 @@ otbrError PublisherAvahi::PublishService(const char *       aHostName,
 
     VerifyOrExit(mState == State::kReady, errno = EAGAIN, error = OTBR_ERROR_ERRNO);
     VerifyOrExit(mClient != nullptr, errno = EAGAIN, error = OTBR_ERROR_ERRNO);
-    VerifyOrExit(aName != nullptr, error = OTBR_ERROR_INVALID_ARGS);
-    VerifyOrExit(aType != nullptr, error = OTBR_ERROR_INVALID_ARGS);
 
-    if (aHostName != nullptr)
+    if (!aHostName.empty())
     {
         fullHostName = MakeFullName(aHostName);
-        aHostName    = fullHostName.c_str();
     }
 
     serviceIt = FindService(aName, aType);
@@ -654,15 +634,16 @@ otbrError PublisherAvahi::PublishService(const char *       aHostName,
     {
         SuccessOrExit(error = CreateService(*mClient, aName, aType, serviceIt));
     }
-    else if (IsServiceOutdated(*serviceIt, safeHostName, aPort, aSubTypeList))
+    else if (IsServiceOutdated(*serviceIt, fullHostName, aPort, aSubTypeList))
     {
         SuccessOrExit(error = ResetGroup(serviceIt->mGroup));
     }
     else
     {
-        otbrLogInfo("Update service %s.%s for host %s", aName, aType, logHostName);
+        otbrLogInfo("Update service %s.%s for host %s", aName.c_str(), aType.c_str(), logHostName.c_str());
         avahiError = avahi_entry_group_update_service_txt_strlst(serviceIt->mGroup, AVAHI_IF_UNSPEC, mProtocol,
-                                                                 AvahiPublishFlags{}, aName, aType, mDomain, head);
+                                                                 AvahiPublishFlags{}, aName.c_str(), aType.c_str(),
+                                                                 mDomain.c_str(), head);
         if (avahiError == 0 && mServiceHandler != nullptr)
         {
             // The handler should be called even if the request can be processed synchronously
@@ -672,28 +653,28 @@ otbrError PublisherAvahi::PublishService(const char *       aHostName,
         ExitNow();
     }
 
-    otbrLogInfo("Create service %s.%s for host %s", aName, aType, logHostName);
-    avahiError =
-        avahi_entry_group_add_service_strlst(serviceIt->mGroup, AVAHI_IF_UNSPEC, mProtocol, AvahiPublishFlags{}, aName,
-                                             aType, mDomain, aHostName, aPort, head);
+    otbrLogInfo("Create service %s.%s for host %s", aName.c_str(), aType.c_str(), logHostName.c_str());
+    avahiError = avahi_entry_group_add_service_strlst(serviceIt->mGroup, AVAHI_IF_UNSPEC, mProtocol,
+                                                      AvahiPublishFlags{}, aName.c_str(), aType.c_str(),
+                                                      mDomain.c_str(), fullHostName.c_str(), aPort, head);
     SuccessOrExit(avahiError);
 
     for (const std::string &subType : aSubTypeList)
     {
-        otbrLogInfo("Add subtype %s for service %s.%s", subType.c_str(), aName, aType);
+        otbrLogInfo("Add subtype %s for service %s.%s", subType.c_str(), aName.c_str(), aType.c_str());
         std::string fullSubType = subType + "._sub." + aType;
         avahiError =
             avahi_entry_group_add_service_subtype(serviceIt->mGroup, AVAHI_IF_UNSPEC, mProtocol, AvahiPublishFlags{},
-                                                  aName, aType, mDomain, fullSubType.c_str());
+                                                  aName.c_str(), aType.c_str(), mDomain.c_str(), fullSubType.c_str());
         SuccessOrExit(avahiError);
     }
 
-    otbrLogInfo("Commit service %s.%s", aName, aType);
+    otbrLogInfo("Commit service %s.%s", aName.c_str(), aType.c_str());
     avahiError = avahi_entry_group_commit(serviceIt->mGroup);
     SuccessOrExit(avahiError);
 
     serviceIt->mSubTypeList = aSubTypeList;
-    serviceIt->mHostName    = safeHostName;
+    serviceIt->mHostName    = fullHostName;
     serviceIt->mPort        = aPort;
     serviceIt->mTxtList     = aTxtList;
 
@@ -718,18 +699,15 @@ exit:
     return error;
 }
 
-otbrError PublisherAvahi::UnpublishService(const char *aName, const char *aType)
+otbrError PublisherAvahi::UnpublishService(const std::string &aName, const std::string &aType)
 {
     otbrError          error = OTBR_ERROR_NONE;
     Services::iterator serviceIt;
 
-    VerifyOrExit(aName != nullptr, error = OTBR_ERROR_INVALID_ARGS);
-    VerifyOrExit(aType != nullptr, error = OTBR_ERROR_INVALID_ARGS);
-
     serviceIt = FindService(aName, aType);
     VerifyOrExit(serviceIt != mServices.end());
 
-    otbrLogInfo("Unpublish service %s.%s", aName, aType);
+    otbrLogInfo("Unpublish service %s.%s", aName.c_str(), aType.c_str());
     error = FreeGroup(serviceIt->mGroup);
     mServices.erase(serviceIt);
 
@@ -737,7 +715,7 @@ exit:
     return error;
 }
 
-otbrError PublisherAvahi::PublishHost(const char *aName, const uint8_t *aAddress, uint8_t aAddressLength)
+otbrError PublisherAvahi::PublishHost(const std::string &aName, const std::vector<uint8_t> &aAddress)
 {
     otbrError       error      = OTBR_ERROR_NONE;
     int             avahiError = 0;
@@ -747,9 +725,7 @@ otbrError PublisherAvahi::PublishHost(const char *aName, const uint8_t *aAddress
 
     VerifyOrExit(mState == State::kReady, errno = EAGAIN, error = OTBR_ERROR_ERRNO);
     VerifyOrExit(mClient != nullptr, errno = EAGAIN, error = OTBR_ERROR_ERRNO);
-    VerifyOrExit(aName != nullptr, error = OTBR_ERROR_INVALID_ARGS);
-    VerifyOrExit(aAddress != nullptr, error = OTBR_ERROR_INVALID_ARGS);
-    VerifyOrExit(aAddressLength == sizeof(address.data.ipv6.address), error = OTBR_ERROR_INVALID_ARGS);
+    VerifyOrExit(aAddress.size() == sizeof(address.data.ipv6.address), error = OTBR_ERROR_INVALID_ARGS);
 
     fullHostName = MakeFullName(aName);
     hostIt       = FindHost(aName);
@@ -758,7 +734,7 @@ otbrError PublisherAvahi::PublishHost(const char *aName, const uint8_t *aAddress
     {
         SuccessOrExit(error = CreateHost(*mClient, aName, hostIt));
     }
-    else if (memcmp(hostIt->mAddress.data.ipv6.address, aAddress, aAddressLength))
+    else if (memcmp(hostIt->mAddress.data.ipv6.address, aAddress.data(), aAddress.size()) != 0)
     {
         SuccessOrExit(error = ResetGroup(hostIt->mGroup));
     }
@@ -773,14 +749,14 @@ otbrError PublisherAvahi::PublishHost(const char *aName, const uint8_t *aAddress
     }
 
     address.proto = AVAHI_PROTO_INET6;
-    memcpy(&address.data.ipv6.address[0], aAddress, aAddressLength);
+    memcpy(address.data.ipv6.address, aAddress.data(), aAddress.size());
 
-    otbrLogInfo("Create host %s", aName);
+    otbrLogInfo("Create host %s", aName.c_str());
     avahiError = avahi_entry_group_add_address(hostIt->mGroup, AVAHI_IF_UNSPEC, mProtocol, AVAHI_PUBLISH_NO_REVERSE,
                                                fullHostName.c_str(), &address);
     SuccessOrExit(avahiError);
 
-    otbrLogInfo("Commit host %s", aName);
+    otbrLogInfo("Commit host %s", aName.c_str());
     avahiError = avahi_entry_group_commit(hostIt->mGroup);
     SuccessOrExit(avahiError);
 
@@ -807,17 +783,15 @@ exit:
     return error;
 }
 
-otbrError PublisherAvahi::UnpublishHost(const char *aName)
+otbrError PublisherAvahi::UnpublishHost(const std::string &aName)
 {
     otbrError       error = OTBR_ERROR_NONE;
     Hosts::iterator hostIt;
 
-    VerifyOrExit(aName != nullptr, error = OTBR_ERROR_INVALID_ARGS);
-
     hostIt = FindHost(aName);
     VerifyOrExit(hostIt != mHosts.end());
 
-    otbrLogInfo("Delete host %s", aName);
+    otbrLogInfo("Delete host %s", aName.c_str());
     error = FreeGroup(hostIt->mGroup);
     mHosts.erase(hostIt);
 
@@ -864,16 +838,9 @@ exit:
     return error;
 }
 
-std::string PublisherAvahi::MakeFullName(const char *aName)
+std::string PublisherAvahi::MakeFullName(const std::string &aName)
 {
-    assert(aName != nullptr);
-
-    std::string fullHostName(aName);
-
-    fullHostName += '.';
-    fullHostName += (mDomain == nullptr ? "local." : mDomain);
-
-    return fullHostName;
+    return aName + "." + (mDomain.empty() ? "local." : mDomain);
 }
 
 void PublisherAvahi::SubscribeService(const std::string &aType, const std::string &aInstanceName)
@@ -964,7 +931,7 @@ void PublisherAvahi::UnsubscribeHost(const std::string &aHostName)
     otbrLogInfo("unsubscribe host %s (remaining %d)", aHostName.c_str(), mSubscribedHosts.size());
 }
 
-Publisher *Publisher::Create(int aFamily, const char *aDomain, StateHandler aHandler, void *aContext)
+Publisher *Publisher::Create(int aFamily, const std::string &aDomain, StateHandler aHandler, void *aContext)
 {
     return new PublisherAvahi(aFamily, aDomain, aHandler, aContext);
 }
@@ -979,9 +946,9 @@ void PublisherAvahi::ServiceSubscription::Browse(void)
     assert(mPublisherAvahi->mClient != nullptr);
 
     otbrLogInfo("browse service %s", mType.c_str());
-    mServiceBrowser =
-        avahi_service_browser_new(mPublisherAvahi->mClient, AVAHI_IF_UNSPEC, mPublisherAvahi->mProtocol, mType.c_str(),
-                                  mPublisherAvahi->mDomain, static_cast<AvahiLookupFlags>(0), HandleBrowseResult, this);
+    mServiceBrowser = avahi_service_browser_new(mPublisherAvahi->mClient, AVAHI_IF_UNSPEC, mPublisherAvahi->mProtocol,
+                                                mType.c_str(), mPublisherAvahi->mDomain.c_str(),
+                                                static_cast<AvahiLookupFlags>(0), HandleBrowseResult, this);
     if (!mServiceBrowser)
     {
         otbrLogWarning("failed to browse service %s: %s", mType.c_str(),
@@ -1048,16 +1015,17 @@ void PublisherAvahi::ServiceSubscription::HandleBrowseResult(AvahiServiceBrowser
     }
 }
 
-void PublisherAvahi::ServiceSubscription::Resolve(uint32_t      aInterfaceIndex,
-                                                  AvahiProtocol aProtocol,
-                                                  const char *  aInstanceName,
-                                                  const char *  aType,
-                                                  const char *  aDomain)
+void PublisherAvahi::ServiceSubscription::Resolve(uint32_t           aInterfaceIndex,
+                                                  AvahiProtocol      aProtocol,
+                                                  const std::string &aInstanceName,
+                                                  const std::string &aType,
+                                                  const std::string &aDomain)
 {
-    otbrLogInfo("resolve service %s %s %s inf %d", aInstanceName, aType, aDomain, aInterfaceIndex);
-    mServiceResolver =
-        avahi_service_resolver_new(mPublisherAvahi->mClient, aInterfaceIndex, aProtocol, aInstanceName, aType, aDomain,
-                                   AVAHI_PROTO_INET6, static_cast<AvahiLookupFlags>(0), HandleResolveResult, this);
+    otbrLogInfo("resolve service %s %s %s inf %d", aInstanceName.c_str(), aType.c_str(), aDomain.c_str(),
+                aInterfaceIndex);
+    mServiceResolver = avahi_service_resolver_new(
+        mPublisherAvahi->mClient, aInterfaceIndex, aProtocol, aInstanceName.c_str(), aType.c_str(), aDomain.c_str(),
+        AVAHI_PROTO_INET6, static_cast<AvahiLookupFlags>(0), HandleResolveResult, this);
     if (!mServiceResolver)
     {
         otbrLogErr("failed to resolve serivce %s: %s", mType.c_str(),
