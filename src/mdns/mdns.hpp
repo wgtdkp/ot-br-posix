@@ -62,6 +62,19 @@ namespace Mdns {
 class Publisher
 {
 public:
+    /** The maximum DNS label length excluding the terminating NULL char. */
+    static constexpr size_t kMaxDnsLabelLength = 63;
+
+    /** The maximum DNS service instance name length excluding the terminating NULL char. */
+    static constexpr size_t kMaxDnsServiceNameLength = kMaxDnsLabelLength;
+
+    /**
+     * The maximum DNS service type length excluding the terminating NULL char.
+     * The service type is in format of "<label>._udp" or "<label>._tcp".
+     *
+     */
+    static constexpr size_t kMaxDnsServiceTypeLength = kMaxDnsLabelLength + 1 + 4;
+
     /**
      * This structure represents a name/value pair of the TXT record.
      *

@@ -485,10 +485,16 @@ otbrError PublisherMDnsSd::PublishService(const std::string &aHostName,
     otbrError            ret   = OTBR_ERROR_NONE;
     int                  error = 0;
     std::vector<uint8_t> txt;
-    std::string          regType    = MakeRegType(aType, aSubTypeList);
-    ServiceIterator      service    = FindPublishedService(aName, aType);
+    std::string          regType;
+    ServiceIterator      service;
     DNSServiceRef        serviceRef = nullptr;
     std::string          fullHostName;
+
+    VerifyOrExit(aName.length() <= kMaxDnsServiceNameLength, ret == OTBR_ERROR_INVALID_ARGS);
+    VerifyOrExit(aType.length() <= kMaxDnsServiceTypeLength, ret == OTBR_ERROR_INVALID_ARGS);
+
+    regType = MakeRegType(aType, aSubTypeList);
+    service = FindPublishedService(aName, aType);
 
     if (!aHostName.empty())
     {
