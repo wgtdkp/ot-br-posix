@@ -54,7 +54,7 @@ bool Publisher::IsServiceTypeEqual(std::string aFirstType, std::string aSecondTy
     return aFirstType == aSecondType;
 }
 
-otbrError Publisher::EncodeTxtData(const TxtList &aTxtList, std::vector<uint8_t> &aTxtData)
+otbrError Publisher::EncodeTxtData(TxtList aTxtList, std::vector<uint8_t> &aTxtData)
 {
     otbrError error = OTBR_ERROR_NONE;
 

@@ -187,19 +187,20 @@ public:
 
     ~PublisherAvahi(void) override;
 
-    otbrError PublishService(const std::string &aHostName,
-                             uint16_t           aPort,
-                             const std::string &aName,
-                             const std::string &aType,
-                             const SubTypeList &aSubTypeList,
-                             const TxtList &    aTxtList) override;
-    otbrError UnpublishService(const std::string &aName, const std::string &aType) override;
-    otbrError PublishHost(const std::string &aName, const std::vector<uint8_t> &aAddress) override;
-    otbrError UnpublishHost(const std::string &aName) override;
-    void      SubscribeService(const std::string &aType, const std::string &aInstanceName) override;
-    void      UnsubscribeService(const std::string &aType, const std::string &aInstanceName) override;
-    void      SubscribeHost(const std::string &aHostName) override;
-    void      UnsubscribeHost(const std::string &aHostName) override;
+    void PublishService(const std::string &aHostName,
+                        uint16_t           aPort,
+                        const std::string &aName,
+                        const std::string &aType,
+                        const SubTypeList &aSubTypeList,
+                        const TxtList &    aTxtList,
+                        ResultCallback     aCallback) override;
+    void UnpublishService(const std::string &aName, const std::string &aType, ResultCallback aCallback) override;
+    void PublishHost(const std::string &aName, const std::vector<uint8_t> &aAddress, ResultCallback aCallback) override;
+    void UnpublishHost(const std::string &aName, ResultCallback aCallback) override;
+    void SubscribeService(const std::string &aType, const std::string &aInstanceName) override;
+    void UnsubscribeService(const std::string &aType, const std::string &aInstanceName) override;
+    void SubscribeHost(const std::string &aHostName) override;
+    void UnsubscribeHost(const std::string &aHostName) override;
     otbrError Start(void) override;
     bool      IsStarted(void) const override;
     void      Stop(void) override;
@@ -219,7 +220,7 @@ private:
         TxtList          mTxtList;
     };
 
-    typedef std::vector<Service> Services;
+    typedef std::vector<Service> ServiceList;
 
     struct Host
     {
@@ -349,26 +350,26 @@ private:
         AvahiRecordBrowser *mRecordBrowser;
     };
 
-    typedef std::vector<Host>                Hosts;
+    typedef std::vector<Host>                HostList;
     typedef std::vector<ServiceSubscription> ServiceSubscriptionList;
     typedef std::vector<HostSubscription>    HostSubscriptionList;
 
     static void HandleClientState(AvahiClient *aClient, AvahiClientState aState, void *aContext);
     void        HandleClientState(AvahiClient *aClient, AvahiClientState aState);
 
-    Hosts::iterator FindHost(const std::string &aHostName);
-    otbrError       CreateHost(AvahiClient &aClient, const std::string &aHostName, Hosts::iterator &aOutHostIt);
+    HostList::iterator FindHost(const std::string &aHostName);
+    otbrError          CreateHost(AvahiClient &aClient, const std::string &aHostName, HostList::iterator &aOutHostIt);
 
-    Services::iterator FindService(const std::string &aName, const std::string &aType);
-    Services::iterator FindService(AvahiEntryGroup *aGroup);
-    otbrError          CreateService(AvahiClient &       aClient,
-                                     const std::string & aName,
-                                     const std::string & aType,
-                                     Services::iterator &aOutServiceIt);
-    static bool        IsServiceOutdated(const Service &    aService,
-                                         const std::string &aNewHostName,
-                                         uint16_t           aNewPort,
-                                         const SubTypeList &aNewSubTypeList);
+    ServiceList::iterator FindService(const std::string &aName, const std::string &aType);
+    ServiceList::iterator FindService(AvahiEntryGroup *aGroup);
+    otbrError             CreateService(AvahiClient &          aClient,
+                                        const std::string &    aName,
+                                        const std::string &    aType,
+                                        ServiceList::iterator &aOutServiceIt);
+    static bool           IsServiceOutdated(const Service &    aService,
+                                            const std::string &aNewHostName,
+                                            uint16_t           aNewPort,
+                                            const SubTypeList &aNewSubTypeList);
 
     otbrError        CreateGroup(AvahiClient &aClient, AvahiEntryGroup *&aOutGroup);
     static otbrError ResetGroup(AvahiEntryGroup *aGroup);
@@ -390,13 +391,12 @@ private:
     void        OnHostResolved(HostSubscription &aHost);
     void        OnHostResolveFailed(const HostSubscription &aHost, int aErrorCode);
 
-    AvahiClient *mClient;
-    Hosts        mHosts;
-    Services     mServices;
-    Poller       mPoller;
-    State        mState;
-    StateHandler mStateHandler;
-    void *       mContext;
+    AvahiClient * mClient;
+    HostList      mHosts;
+    ServiceList   mServices;
+    Poller        mPoller;
+    State         mState;
+    StateCallback mStateCallback;
 
     ServiceSubscriptionList mSubscribedServices;
     HostSubscriptionList    mSubscribedHosts;

@@ -96,16 +96,15 @@ void PublishSingleServiceWithCustomHost(void *aContext, Mdns::Publisher::State a
     VerifyOrDie(aContext == &sContext, "unexpected context");
     if (aState == Mdns::Publisher::State::kReady)
     {
-        otbrError                error;
         Mdns::Publisher::TxtList txtList{
             {"nn", "cool"}, {"xp", xpanid, sizeof(xpanid)}, {"tv", "1.1.1"}, {"dd", extAddr, sizeof(extAddr)}};
 
-        error = sContext.mPublisher->PublishHost(hostName, hostAddr);
-        SuccessOrDie(error, "cannot publish the host");
+        sContext.mPublisher->PublishHost(hostName, hostAddr,
+                                         [](otbrError aError) { SuccessOrDie(aError, "cannot publish the host"); });
 
-        error = sContext.mPublisher->PublishService(hostName, 12345, "SingleService", "_meshcop._udp.",
-                                                    Mdns::Publisher::SubTypeList{}, txtList);
-        SuccessOrDie(error, "cannot publish the service");
+        sContext.mPublisher->PublishService(
+            hostName, 12345, "SingleService", "_meshcop._udp.", Mdns::Publisher::SubTypeList{}, txtList,
+            [](otbrError aError) { SuccessOrDie(aError, "cannot publish the service"); });
     }
 }
 
@@ -124,31 +123,30 @@ void PublishMultipleServicesWithCustomHost(void *aContext, Mdns::Publisher::Stat
     VerifyOrDie(aContext == &sContext, "unexpected context");
     if (aState == Mdns::Publisher::State::kReady)
     {
-        otbrError                error;
         Mdns::Publisher::TxtList txtList{
             {"nn", "cool"}, {"xp", xpanid, sizeof(xpanid)}, {"tv", "1.1.1"}, {"dd", extAddr, sizeof(extAddr)}};
 
-        error = sContext.mPublisher->PublishHost(hostName1, hostAddr);
-        SuccessOrDie(error, "cannot publish the first host");
+        sContext.mPublisher->PublishHost(hostName1, hostAddr,
+                                         [](otbrError aError) { SuccessOrDie(aError, "cannot publish the host"); });
 
-        error = sContext.mPublisher->PublishService(hostName1, 12345, "MultipleService11", "_meshcop._udp.",
-                                                    Mdns::Publisher::SubTypeList{}, txtList);
-        SuccessOrDie(error, "cannot publish the first service");
+        sContext.mPublisher->PublishService(
+            hostName1, 12345, "MultipleService11", "_meshcop._udp.", Mdns::Publisher::SubTypeList{}, txtList,
+            [](otbrError aError) { SuccessOrDie(aError, "cannot publish the first service"); });
 
-        error = sContext.mPublisher->PublishService(hostName1, 12345, "MultipleService12", "_meshcop._udp.",
-                                                    Mdns::Publisher::SubTypeList{}, txtList);
-        SuccessOrDie(error, "cannot publish the second service");
+        sContext.mPublisher->PublishService(
+            hostName1, 12345, "MultipleService12", "_meshcop._udp.", Mdns::Publisher::SubTypeList{}, txtList,
+            [](otbrError aError) { SuccessOrDie(aError, "cannot publish the second service"); });
 
-        error = sContext.mPublisher->PublishHost(hostName2, hostAddr);
-        SuccessOrDie(error, "cannot publish the second host");
+        sContext.mPublisher->PublishHost(
+            hostName2, hostAddr, [](otbrError aError) { SuccessOrDie(aError, "cannot publish the second host"); });
 
-        error = sContext.mPublisher->PublishService(hostName2, 12345, "MultipleService21", "_meshcop._udp.",
-                                                    Mdns::Publisher::SubTypeList{}, txtList);
-        SuccessOrDie(error, "cannot publish the first service");
+        sContext.mPublisher->PublishService(
+            hostName2, 12345, "MultipleService21", "_meshcop._udp.", Mdns::Publisher::SubTypeList{}, txtList,
+            [](otbrError aError) { SuccessOrDie(aError, "cannot publish the first service"); });
 
-        error = sContext.mPublisher->PublishService(hostName2, 12345, "MultipleService22", "_meshcop._udp.",
-                                                    Mdns::Publisher::SubTypeList{}, txtList);
-        SuccessOrDie(error, "cannot publish the second service");
+        sContext.mPublisher->PublishService(
+            hostName2, 12345, "MultipleService22", "_meshcop._udp.", Mdns::Publisher::SubTypeList{}, txtList,
+            [](otbrError aError) { SuccessOrDie(aError, "cannot publish the second service"); });
     }
 }
 
@@ -162,9 +160,9 @@ void PublishSingleService(void *aContext, Mdns::Publisher::State aState)
     assert(aContext == &sContext);
     if (aState == Mdns::Publisher::State::kReady)
     {
-        otbrError error = sContext.mPublisher->PublishService("", 12345, "SingleService", "_meshcop._udp.",
-                                                              Mdns::Publisher::SubTypeList{}, txtList);
-        assert(error == OTBR_ERROR_NONE);
+        sContext.mPublisher->PublishService(
+            "", 12345, "SingleService", "_meshcop._udp.", Mdns::Publisher::SubTypeList{}, txtList,
+            [](otbrError aError) { SuccessOrDie(aError, "SingleService._meshcop._udp."); });
     }
 }
 
@@ -176,24 +174,22 @@ void PublishMultipleServices(void *aContext, Mdns::Publisher::State aState)
     assert(aContext == &sContext);
     if (aState == Mdns::Publisher::State::kReady)
     {
-        otbrError                error;
         Mdns::Publisher::TxtList txtList{
             {"nn", "cool1"}, {"xp", xpanid, sizeof(xpanid)}, {"tv", "1.1.1"}, {"dd", extAddr, sizeof(extAddr)}};
 
-        error = sContext.mPublisher->PublishService("", 12345, "MultipleService1", "_meshcop._udp.",
-                                                    Mdns::Publisher::SubTypeList{}, txtList);
-        assert(error == OTBR_ERROR_NONE);
+        sContext.mPublisher->PublishService(
+            "", 12345, "MultipleService1", "_meshcop._udp.", Mdns::Publisher::SubTypeList{}, txtList,
+            [](otbrError aError) { SuccessOrDie(aError, "MultipleService1._meshcop._udp."); });
     }
 
     if (aState == Mdns::Publisher::State::kReady)
     {
-        otbrError                error;
         Mdns::Publisher::TxtList txtList{
             {"nn", "cool2"}, {"xp", xpanid, sizeof(xpanid)}, {"tv", "1.1.1"}, {"dd", extAddr, sizeof(extAddr)}};
 
-        error = sContext.mPublisher->PublishService("", 12345, "MultipleService2", "_meshcop._udp.",
-                                                    Mdns::Publisher::SubTypeList{}, txtList);
-        assert(error == OTBR_ERROR_NONE);
+        sContext.mPublisher->PublishService(
+            "", 12345, "MultipleService2", "_meshcop._udp.", Mdns::Publisher::SubTypeList{}, txtList,
+            [](otbrError aError) { SuccessOrDie(aError, "MultipleService2._meshcop._udp."); });
     }
 }
 
@@ -206,8 +202,6 @@ void PublishUpdateServices(void *aContext, Mdns::Publisher::State aState)
     assert(aContext == &sContext);
     if (aState == Mdns::Publisher::State::kReady)
     {
-        otbrError error;
-
         if (!sContext.mUpdate)
         {
             Mdns::Publisher::TxtList txtList{{"nn", "cool"},
@@ -215,8 +209,9 @@ void PublishUpdateServices(void *aContext, Mdns::Publisher::State aState)
                                              {"tv", "1.1.1"},
                                              {"dd", extAddr, sizeof(extAddr)}};
 
-            error = sContext.mPublisher->PublishService("", 12345, "UpdateService", "_meshcop._udp.",
-                                                        Mdns::Publisher::SubTypeList{}, txtList);
+            sContext.mPublisher->PublishService(
+                "", 12345, "UpdateService", "_meshcop._udp.", Mdns::Publisher::SubTypeList{}, txtList,
+                [](otbrError aError) { SuccessOrDie(aError, "UpdateService._meshcop._udp"); });
         }
         else
         {
@@ -225,10 +220,10 @@ void PublishUpdateServices(void *aContext, Mdns::Publisher::State aState)
                                              {"tv", "1.1.1"},
                                              {"dd", extAddr, sizeof(extAddr)}};
 
-            error = sContext.mPublisher->PublishService("", 12345, "UpdateService", "_meshcop._udp.",
-                                                        Mdns::Publisher::SubTypeList{}, txtList);
+            sContext.mPublisher->PublishService(
+                "", 12345, "UpdateService", "_meshcop._udp.", Mdns::Publisher::SubTypeList{}, txtList,
+                [](otbrError aError) { SuccessOrDie(aError, "UpdateService._meshcop._udp"); });
         }
-        assert(error == OTBR_ERROR_NONE);
     }
 }
 
@@ -237,7 +232,6 @@ void PublishServiceSubTypes(void *aContext, Mdns::Publisher::State aState)
     assert(aContext == &sContext);
     if (aState == Mdns::Publisher::State::kReady)
     {
-        otbrError                    error;
         Mdns::Publisher::SubTypeList subTypeList{"_subtype1", "_SUBTYPE2"};
 
         if (sContext.mUpdate)
@@ -245,9 +239,9 @@ void PublishServiceSubTypes(void *aContext, Mdns::Publisher::State aState)
             subTypeList.back() = "_SUBTYPE3";
         }
 
-        error = sContext.mPublisher->PublishService("", 12345, "ServiceWithSubTypes", "_meshcop._udp.", subTypeList,
-                                                    Mdns::Publisher::TxtList{});
-        assert(error == OTBR_ERROR_NONE);
+        sContext.mPublisher->PublishService(
+            "", 12345, "ServiceWithSubTypes", "_meshcop._udp.", subTypeList, Mdns::Publisher::TxtList{},
+            [](otbrError aError) { SuccessOrDie(aError, "ServiceWithSubTypes._meshcop._udp."); });
     }
 }
 
@@ -255,8 +249,9 @@ otbrError TestSingleServiceWithCustomHost(void)
 {
     otbrError error = OTBR_ERROR_NONE;
 
-    Mdns::Publisher *pub = Mdns::Publisher::Create(PublishSingleServiceWithCustomHost, &sContext);
-    sContext.mPublisher  = pub;
+    Mdns::Publisher *pub = Mdns::Publisher::Create(
+        [](Mdns::Publisher::State aState) { PublishSingleServiceWithCustomHost(&sContext, aState); });
+    sContext.mPublisher = pub;
     SuccessOrExit(error = pub->Start());
     RunMainloop();
 
@@ -269,8 +264,9 @@ otbrError TestMultipleServicesWithCustomHost(void)
 {
     otbrError error = OTBR_ERROR_NONE;
 
-    Mdns::Publisher *pub = Mdns::Publisher::Create(PublishMultipleServicesWithCustomHost, &sContext);
-    sContext.mPublisher  = pub;
+    Mdns::Publisher *pub = Mdns::Publisher::Create(
+        [](Mdns::Publisher::State aState) { PublishMultipleServicesWithCustomHost(&sContext, aState); });
+    sContext.mPublisher = pub;
     SuccessOrExit(error = pub->Start());
     RunMainloop();
 
@@ -283,8 +279,9 @@ otbrError TestSingleService(void)
 {
     otbrError ret = OTBR_ERROR_NONE;
 
-    Mdns::Publisher *pub = Mdns::Publisher::Create(PublishSingleService, &sContext);
-    sContext.mPublisher  = pub;
+    Mdns::Publisher *pub =
+        Mdns::Publisher::Create([](Mdns::Publisher::State aState) { PublishSingleService(&sContext, aState); });
+    sContext.mPublisher = pub;
     SuccessOrExit(ret = pub->Start());
     RunMainloop();
 
@@ -297,8 +294,9 @@ otbrError TestMultipleServices(void)
 {
     otbrError ret = OTBR_ERROR_NONE;
 
-    Mdns::Publisher *pub = Mdns::Publisher::Create(PublishMultipleServices, &sContext);
-    sContext.mPublisher  = pub;
+    Mdns::Publisher *pub =
+        Mdns::Publisher::Create([](Mdns::Publisher::State aState) { PublishMultipleServices(&sContext, aState); });
+    sContext.mPublisher = pub;
     SuccessOrExit(ret = pub->Start());
     RunMainloop();
 
@@ -311,9 +309,10 @@ otbrError TestUpdateService(void)
 {
     otbrError ret = OTBR_ERROR_NONE;
 
-    Mdns::Publisher *pub = Mdns::Publisher::Create(PublishUpdateServices, &sContext);
-    sContext.mPublisher  = pub;
-    sContext.mUpdate     = false;
+    Mdns::Publisher *pub =
+        Mdns::Publisher::Create([](Mdns::Publisher::State aState) { PublishUpdateServices(&sContext, aState); });
+    sContext.mPublisher = pub;
+    sContext.mUpdate    = false;
     SuccessOrExit(ret = pub->Start());
     sContext.mUpdate = true;
     PublishUpdateServices(&sContext, Mdns::Publisher::State::kReady);
@@ -328,9 +327,10 @@ otbrError TestServiceSubTypes(void)
 {
     otbrError ret = OTBR_ERROR_NONE;
 
-    Mdns::Publisher *pub = Mdns::Publisher::Create(PublishServiceSubTypes, &sContext);
-    sContext.mPublisher  = pub;
-    sContext.mUpdate     = false;
+    Mdns::Publisher *pub =
+        Mdns::Publisher::Create([](Mdns::Publisher::State aState) { PublishServiceSubTypes(&sContext, aState); });
+    sContext.mPublisher = pub;
+    sContext.mUpdate    = false;
     SuccessOrExit(ret = pub->Start());
     sContext.mUpdate = true;
     PublishServiceSubTypes(&sContext, Mdns::Publisher::State::kReady);
@@ -357,8 +357,9 @@ otbrError TestStopService(void)
 {
     otbrError ret = OTBR_ERROR_NONE;
 
-    Mdns::Publisher *pub = Mdns::Publisher::Create(PublishSingleService, &sContext);
-    sContext.mPublisher  = pub;
+    Mdns::Publisher *pub =
+        Mdns::Publisher::Create([](Mdns::Publisher::State aState) { PublishSingleService(&sContext, aState); });
+    sContext.mPublisher = pub;
     SuccessOrExit(ret = pub->Start());
     signal(SIGUSR1, RecoverSignal);
     signal(SIGUSR2, RecoverSignal);

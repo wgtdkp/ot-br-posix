@@ -142,64 +142,11 @@ public:
         kReady, ///< Ready to publish service.
     };
 
-    /**
-     * This function pointer is called when mDNS publisher state changed.
-     *
-     * @param[in] aContext  A pointer to application-specific context.
-     * @param[in] aState    The new state.
-     *
-     */
-    typedef void (*StateHandler)(void *aContext, State aState);
+    /** The callback for receiving mDNS publisher state changes. */
+    using StateCallback = std::function<void(State aNewState)>;
 
-    /**
-     * This method reports the result of a service publication.
-     *
-     * @param[in] aName     The service instance name.
-     * @param[in] aType     The service type.
-     * @param[in] aError    An error that indicates whether the service publication succeeds.
-     * @param[in] aContext  A user context.
-     *
-     */
-    typedef void (*PublishServiceHandler)(const std::string &aName,
-                                          const std::string &aType,
-                                          otbrError          aError,
-                                          void *             aContext);
-
-    /**
-     * This method reports the result of a host publication.
-     *
-     * @param[in] aName     The host name.
-     * @param[in] aError    An OTBR error that indicates whether the host publication succeeds.
-     * @param[in] aContext  A user context.
-     *
-     */
-    typedef void (*PublishHostHandler)(const std::string &aName, otbrError aError, void *aContext);
-
-    /**
-     * This method sets the handler for service publication.
-     *
-     * @param[in] aHandler  A handler which will be called when a service publication is finished.
-     * @param[in] aContext  A user context which is associated to @p aHandler.
-     *
-     */
-    void SetPublishServiceHandler(PublishServiceHandler aHandler, void *aContext)
-    {
-        mServiceHandler        = aHandler;
-        mServiceHandlerContext = aContext;
-    }
-
-    /**
-     * This method sets the handler for host publication.
-     *
-     * @param[in] aHandler  A handler which will be called when a host publication is finished.
-     * @param[in] aContext  A user context which is associated to @p aHandler.
-     *
-     */
-    void SetPublishHostHandler(PublishHostHandler aHandler, void *aContext)
-    {
-        mHostHandler        = aHandler;
-        mHostHandlerContext = aContext;
-    }
+    /** The callback for receiving the result of a operation. */
+    using ResultCallback = std::function<void(otbrError aError)>;
 
     /**
      * This method starts the mDNS publisher.
@@ -237,29 +184,26 @@ public:
      * @param[in] aType         The type of this service.
      * @param[in] aSubTypeList  A list of service subtypes.
      * @param[in] aTxtList      A list of TXT name/value pairs.
-     *
-     * @retval OTBR_ERROR_NONE   Successfully published or updated the service.
-     * @retval OTBR_ERROR_ERRNO  Failed to publish or update the service.
+     * @param[in] aCallback     The callback for receiving the publishing result.
      *
      */
-    virtual otbrError PublishService(const std::string &aHostName,
-                                     uint16_t           aPort,
-                                     const std::string &aName,
-                                     const std::string &aType,
-                                     const SubTypeList &aSubTypeList,
-                                     const TxtList &    aTxtList) = 0;
+    virtual void PublishService(const std::string &aHostName,
+                                uint16_t           aPort,
+                                const std::string &aName,
+                                const std::string &aType,
+                                const SubTypeList &aSubTypeList,
+                                const TxtList &    aTxtList,
+                                ResultCallback     aCallback) = 0;
 
     /**
      * This method un-publishes a service.
      *
-     * @param[in] aName  The name of this service.
-     * @param[in] aType  The type of this service.
-     *
-     * @retval OTBR_ERROR_NONE   Successfully un-published the service.
-     * @retval OTBR_ERROR_ERRNO  Failed to un-publish the service.
+     * @param[in] aName      The name of this service.
+     * @param[in] aType      The type of this service.
+     * @param[in] aCallback  The callback for receiving the publishing result.
      *
      */
-    virtual otbrError UnpublishService(const std::string &aName, const std::string &aType) = 0;
+    virtual void UnpublishService(const std::string &aName, const std::string &aType, ResultCallback aCallback) = 0;
 
     /**
      * This method publishes or updates a host.
@@ -267,26 +211,23 @@ public:
      * Publishing a host is advertising an AAAA RR for the host name. This method should be called
      * before a service with non-empty host name is published.
      *
-     * @param[in] aName     The name of the host.
-     * @param[in] aAddress  The address of the host.
-     *
-     * @retval OTBR_ERROR_NONE          Successfully published or updated the host.
-     * @retval OTBR_ERROR_INVALID_ARGS  The arguments are not valid.
-     * @retval OTBR_ERROR_ERRNO         Failed to publish or update the host.
+     * @param[in] aName      The name of the host.
+     * @param[in] aAddress   The address of the host.
+     * @param[in] aCallback  The callback for receiving the publishing result.
      *
      */
-    virtual otbrError PublishHost(const std::string &aName, const std::vector<uint8_t> &aAddress) = 0;
+    virtual void PublishHost(const std::string &         aName,
+                             const std::vector<uint8_t> &aAddress,
+                             ResultCallback              aCallback) = 0;
 
     /**
      * This method un-publishes a host.
      *
-     * @param[in] aName  A host name.
-     *
-     * @retval OTBR_ERROR_NONE   Successfully un-published the host.
-     * @retval OTBR_ERROR_ERRNO  Failed to un-publish the host.
+     * @param[in] aName      A host name.
+     * @param[in] aCallback  The callback for receiving the publishing result.
      *
      */
-    virtual otbrError UnpublishHost(const std::string &aName) = 0;
+    virtual void UnpublishHost(const std::string &aName, ResultCallback aCallback) = 0;
 
     /**
      * This method subscribes a given service or service instance.
@@ -359,13 +300,12 @@ public:
     /**
      * This function creates a mDNS publisher.
      *
-     * @param[in] aHandler  The function to be called when this service state changed.
-     * @param[in] aContext  A pointer to application-specific context.
+     * @param[in] aCallback  The callback for receiving mDNS publisher state changes.
      *
      * @returns A pointer to the newly created mDNS publisher.
      *
      */
-    static Publisher *Create(StateHandler aHandler, void *aContext);
+    static Publisher *Create(StateCallback aCallback);
 
     /**
      * This function destroys the mDNS publisher.
@@ -391,7 +331,8 @@ public:
     static bool IsServiceTypeEqual(std::string aFirstType, std::string aSecondType);
 
     /**
-     * This function writes the TXT entry list to a TXT data buffer.
+     * This function writes the TXT entry list to a TXT data buffer. The TXT entries
+     * will be sorted by their keys.
      *
      * The output data is in standard DNS-SD TXT data format.
      * See RFC 6763 for details: https://tools.ietf.org/html/rfc6763#section-6.
@@ -403,19 +344,33 @@ public:
      * @retval OTBR_ERROR_INVALID_ARGS  The @p aTxtList includes invalid TXT entry.
      *
      */
-    static otbrError EncodeTxtData(const TxtList &aTxtList, std::vector<uint8_t> &aTxtData);
+    static otbrError EncodeTxtData(TxtList aTxtList, std::vector<uint8_t> &aTxtData);
 
 protected:
-    enum : uint8_t
+    static constexpr uint8_t kMaxTextEntrySize = 255;
+
+    struct ServiceRegistration
     {
-        kMaxTextEntrySize = 255,
+        std::string mHostName;
+        std::string mName;
+        std::string mType;
+
+        // Service type with sorted subtypes separated by commas.
+        std::string mRegType;
+        uint16_t    mPort;
+
+        // TXT data of entries sorted by keys.
+        std::vector<uint8_t> mTxtData;
+
+        ResultCallback mCallback;
     };
 
-    PublishServiceHandler mServiceHandler        = nullptr;
-    void *                mServiceHandlerContext = nullptr;
-
-    PublishHostHandler mHostHandler        = nullptr;
-    void *             mHostHandlerContext = nullptr;
+    struct HostRegistration
+    {
+        std::string          mName;
+        std::vector<uint8_t> mAddress;
+        ResultCallback       mCallback;
+    };
 
     DiscoveredServiceInstanceCallback mDiscoveredServiceInstanceCallback = nullptr;
     DiscoveredHostCallback            mDiscoveredHostCallback            = nullptr;

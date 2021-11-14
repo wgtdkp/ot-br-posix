@@ -95,7 +95,7 @@ uint32_t BorderAgent::StateBitmap::ToUint32(void) const
 BorderAgent::BorderAgent(otbr::Ncp::ControllerOpenThread &aNcp)
     : mNcp(aNcp)
 #if OTBR_ENABLE_MDNS_AVAHI || OTBR_ENABLE_MDNS_MDNSSD || OTBR_ENABLE_MDNS_MOJO
-    , mPublisher(Mdns::Publisher::Create(HandleMdnsState, this))
+    , mPublisher(Mdns::Publisher::Create([this](Mdns::Publisher::State aState) { HandleMdnsState(aState); }))
 #if OTBR_ENABLE_SRP_ADVERTISING_PROXY
     , mAdvertisingProxy(aNcp, *mPublisher)
 #endif
@@ -176,11 +176,6 @@ void BorderAgent::Stop(void)
 #endif
 
 #endif
-}
-
-void BorderAgent::HandleMdnsState(void *aContext, Mdns::Publisher::State aState)
-{
-    static_cast<BorderAgent *>(aContext)->HandleMdnsState(aState);
 }
 
 BorderAgent::~BorderAgent(void)
@@ -312,7 +307,10 @@ void BorderAgent::PublishMeshCopService(void)
 #endif
 
     mPublisher->PublishService(/* aHostName */ "", otBorderAgentGetUdpPort(instance), kBorderAgentServiceInstanceName,
-                               kBorderAgentServiceType, Mdns::Publisher::SubTypeList{}, txtList);
+                               kBorderAgentServiceType, Mdns::Publisher::SubTypeList{}, txtList, [](otbrError aError) {
+                                   otbrLogResult(aError, "Result of publish meshcop service '%s.%s'",
+                                                 kBorderAgentServiceInstanceName, kBorderAgentServiceType);
+                               });
 }
 
 void BorderAgent::UnpublishMeshCopService(void)
@@ -322,7 +320,10 @@ void BorderAgent::UnpublishMeshCopService(void)
 
     otbrLogInfo("Unpublish meshcop service %s.%s.local.", kBorderAgentServiceInstanceName, kBorderAgentServiceType);
 
-    mPublisher->UnpublishService(kBorderAgentServiceInstanceName, kBorderAgentServiceType);
+    mPublisher->UnpublishService(kBorderAgentServiceInstanceName, kBorderAgentServiceType, [](otbrError aError) {
+        otbrLogResult(aError, "Result of unpublish meshcop service '%s.%s'", kBorderAgentServiceInstanceName,
+                      kBorderAgentServiceType);
+    });
 
 exit:
     return;

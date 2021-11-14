@@ -219,6 +219,14 @@ const char *otbrErrorString(otbrError aError)
         error = "Invalid arguments";
         break;
 
+    case OTBR_ERROR_DUPLICATED:
+        error = "Duplicated";
+        break;
+
+    case OTBR_ERROR_ABORTED:
+        error = "Aborted";
+        break;
+
     default:
         error = "Unknown";
     }
