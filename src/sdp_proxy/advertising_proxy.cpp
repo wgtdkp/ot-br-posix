@@ -227,10 +227,11 @@ otbrError AdvertisingProxy::PublishHostAndItsServices(const otSrpServerHost *aHo
 
         // TODO: select a preferred address or advertise all addresses from SRP client.
         otbrLogDebug("Publish SRP host '%s'", fullHostName.c_str());
-        mPublisher.PublishHost(hostName, firstHostAddress, [this, updateId, fullHostName](otbrError aError) {
-            otbrLogResult(aError, "Handle publish SRP host '%s'", fullHostName.c_str());
-            OnMdnsPublishResult(updateId, aError);
-        });
+        mPublisher.PublishHost(hostName, firstHostAddress,
+                               Mdns::Publisher::ResultCallback([this, updateId, fullHostName](otbrError aError) {
+                                   otbrLogResult(aError, "Handle publish SRP host '%s'", fullHostName.c_str());
+                                   OnMdnsPublishResult(updateId, aError);
+                               }));
     }
     else
     {
@@ -258,12 +259,12 @@ otbrError AdvertisingProxy::PublishHostAndItsServices(const otSrpServerHost *aHo
             Mdns::Publisher::SubTypeList subTypeList = MakeSubTypeList(service);
 
             otbrLogDebug("Publish SRP service '%s'", fullServiceName.c_str());
-            mPublisher.PublishService(hostName, otSrpServerServiceGetPort(service), serviceName, serviceType,
-                                      subTypeList, txtList, [this, updateId, fullServiceName](otbrError aError) {
-                                          otbrLogResult(aError, "Handle publish SRP service '%s'",
-                                                        fullServiceName.c_str());
-                                          OnMdnsPublishResult(updateId, aError);
-                                      });
+            mPublisher.PublishService(
+                hostName, serviceName, serviceType, subTypeList, otSrpServerServiceGetPort(service), txtList,
+                [this, updateId, fullServiceName](otbrError aError) {
+                    otbrLogResult(aError, "Handle publish SRP service '%s'", fullServiceName.c_str());
+                    OnMdnsPublishResult(updateId, aError);
+                });
         }
         else
         {

@@ -306,8 +306,9 @@ void BorderAgent::PublishMeshCopService(void)
     }
 #endif
 
-    mPublisher->PublishService(/* aHostName */ "", otBorderAgentGetUdpPort(instance), kBorderAgentServiceInstanceName,
-                               kBorderAgentServiceType, Mdns::Publisher::SubTypeList{}, txtList, [](otbrError aError) {
+    mPublisher->PublishService(/* aHostName */ "", kBorderAgentServiceInstanceName, kBorderAgentServiceType,
+                               Mdns::Publisher::SubTypeList{}, otBorderAgentGetUdpPort(instance), txtList,
+                               [](otbrError aError) {
                                    otbrLogResult(aError, "Result of publish meshcop service '%s.%s'",
                                                  kBorderAgentServiceInstanceName, kBorderAgentServiceType);
                                });

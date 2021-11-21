@@ -35,11 +35,14 @@
 #define OTBR_AGENT_MDNS_HPP_
 
 #include <functional>
+#include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include <sys/select.h>
 
+#include "common/callback.hpp"
 #include "common/types.hpp"
 
 namespace otbr {
@@ -86,6 +89,8 @@ public:
             , mValue(aValue, aValue + aValueLength)
         {
         }
+
+        bool operator==(const TxtEntry &aOther) const { return mName == aOther.mName && mValue == aOther.mValue; }
     };
 
     typedef std::vector<TxtEntry>    TxtList;
@@ -146,7 +151,7 @@ public:
     using StateCallback = std::function<void(State aNewState)>;
 
     /** The callback for receiving the result of a operation. */
-    using ResultCallback = std::function<void(otbrError aError)>;
+    using ResultCallback = OnceCallback<void(otbrError aError)>;
 
     /**
      * This method starts the mDNS publisher.
@@ -179,21 +184,21 @@ public:
      *                          provided, this service resides on local host and it is the implementation
      *                          to provide specific host name. Otherwise, the caller MUST publish the host
      *                          with method PublishHost.
-     * @param[in] aPort         The port number of this service.
      * @param[in] aName         The name of this service.
      * @param[in] aType         The type of this service.
      * @param[in] aSubTypeList  A list of service subtypes.
+     * @param[in] aPort         The port number of this service.
      * @param[in] aTxtList      A list of TXT name/value pairs.
      * @param[in] aCallback     The callback for receiving the publishing result.
      *
      */
     virtual void PublishService(const std::string &aHostName,
-                                uint16_t           aPort,
                                 const std::string &aName,
                                 const std::string &aType,
                                 const SubTypeList &aSubTypeList,
+                                uint16_t           aPort,
                                 const TxtList &    aTxtList,
-                                ResultCallback     aCallback) = 0;
+                                ResultCallback &&  aCallback) = 0;
 
     /**
      * This method un-publishes a service.
@@ -203,7 +208,7 @@ public:
      * @param[in] aCallback  The callback for receiving the publishing result.
      *
      */
-    virtual void UnpublishService(const std::string &aName, const std::string &aType, ResultCallback aCallback) = 0;
+    virtual void UnpublishService(const std::string &aName, const std::string &aType, ResultCallback &&aCallback) = 0;
 
     /**
      * This method publishes or updates a host.
@@ -218,7 +223,7 @@ public:
      */
     virtual void PublishHost(const std::string &         aName,
                              const std::vector<uint8_t> &aAddress,
-                             ResultCallback              aCallback) = 0;
+                             ResultCallback &&           aCallback) = 0;
 
     /**
      * This method un-publishes a host.
@@ -227,7 +232,7 @@ public:
      * @param[in] aCallback  The callback for receiving the publishing result.
      *
      */
-    virtual void UnpublishHost(const std::string &aName, ResultCallback aCallback) = 0;
+    virtual void UnpublishHost(const std::string &aName, ResultCallback &&aCallback) = 0;
 
     /**
      * This method subscribes a given service or service instance.
@@ -349,28 +354,113 @@ public:
 protected:
     static constexpr uint8_t kMaxTextEntrySize = 255;
 
-    struct ServiceRegistration
+    class Registration
     {
+    public:
+        ResultCallback mCallback;
+
+        Registration(ResultCallback &&aCallback)
+            : mCallback(std::move(aCallback))
+        {
+        }
+        virtual ~Registration(void);
+
+        // Completes the service registration with given result/error.
+        void Complete(otbrError aError) { std::move(mCallback)(aError); }
+
+        // Tells whether the service registration has been completed (typically by calling
+        // `ServiceRegistration::Complete`).
+        bool IsCompleted() const { return mCallback.IsNull(); }
+    };
+
+    class ServiceRegistration : public Registration
+    {
+    public:
         std::string mHostName;
         std::string mName;
         std::string mType;
-
-        // Service type with sorted subtypes separated by commas.
-        std::string mRegType;
+        SubTypeList mSubTypeList;
         uint16_t    mPort;
+        TxtList     mTxtList;
 
-        // TXT data of entries sorted by keys.
-        std::vector<uint8_t> mTxtData;
+        ServiceRegistration(std::string      aHostName,
+                            std::string      aName,
+                            std::string      aType,
+                            SubTypeList      aSubTypeList,
+                            uint16_t         aPort,
+                            TxtList          aTxtList,
+                            ResultCallback &&aCallback)
+            : Registration(std::move(aCallback))
+            , mHostName(std::move(aHostName))
+            , mName(std::move(aName))
+            , mType(std::move(aType))
+            , mSubTypeList(SortSubTypeList(aSubTypeList))
+            , mPort(aPort)
+            , mTxtList(SortTxtList(aTxtList))
+        {
+        }
 
-        ResultCallback mCallback;
+        ~ServiceRegistration(void) override = default;
+
+        // Tells whether this `ServiceRegistration` object is outdated comparing to the given parameters.
+        bool IsOutdated(const std::string &aHostName,
+                        const std::string &aName,
+                        const std::string &aType,
+                        const SubTypeList &aSubTypeList,
+                        uint16_t           aPort,
+                        const TxtList &    aTxtList) const;
     };
 
-    struct HostRegistration
+    class HostRegistration : public Registration
     {
+    public:
         std::string          mName;
         std::vector<uint8_t> mAddress;
-        ResultCallback       mCallback;
+
+        HostRegistration(std::string aName, std::vector<uint8_t> aAddress, ResultCallback &&aCallback)
+            : Registration(std::move(aCallback))
+            , mName(std::move(aName))
+            , mAddress(std::move(aAddress))
+        {
+        }
+
+        ~HostRegistration(void) override = default;
+
+        // Tells whether this `HostRegistration` object is outdated comparing to the given parameters.
+        bool IsOutdated(const std::string &aName, const std::vector<uint8_t> &aAddress) const;
     };
+
+    using ServiceRegistrationPtr = std::shared_ptr<ServiceRegistration>;
+    using ServiceRegistrationMap = std::map<std::string, ServiceRegistrationPtr>;
+    using HostRegistrationPtr    = std::shared_ptr<HostRegistration>;
+    using HostRegistrationMap    = std::map<std::string, HostRegistrationPtr>;
+
+    static SubTypeList SortSubTypeList(SubTypeList aSubTypeList);
+    static TxtList     SortTxtList(TxtList aTxtList);
+    static std::string MakeFullServiceName(const std::string &aName, const std::string &aType);
+    static std::string MakeFullHostName(const std::string &aName);
+
+    void                   AddServiceRegistration(ServiceRegistrationPtr aServiceReg);
+    void                   RemoveServiceRegistration(const std::string &aName, const std::string &aType);
+    ServiceRegistrationPtr FindServiceRegistration(const std::string &aName, const std::string &aType);
+
+    // Handles the cases that there is already a registration for the same service.
+    // If the returned callback is completed, current registration should be considered
+    // success and no further action should be performed.
+    ResultCallback HandleDuplicateServiceRegistration(ServiceRegistrationPtr aExistingServiceReg,
+                                                      bool                   aIsOutdated,
+                                                      ResultCallback &&      aCallback);
+
+    ResultCallback HandleDuplicateHostRegistration(HostRegistrationPtr aExistingHostReg,
+                                                   bool                aIsOutdated,
+                                                   ResultCallback &&   aCallback);
+
+    void                AddHostRegistration(HostRegistrationPtr aHostReg);
+    void                RemoveHostRegistration(const std::string &aName);
+    HostRegistrationPtr FindHostRegistration(const std::string &aName);
+
+    ServiceRegistrationMap mServiceRegistrations;
+    HostRegistrationMap    mHostRegistrations;
 
     DiscoveredServiceInstanceCallback mDiscoveredServiceInstanceCallback = nullptr;
     DiscoveredHostCallback            mDiscoveredHostCallback            = nullptr;

@@ -238,21 +238,14 @@ void PublisherMDnsSd::Stop(void)
 {
     VerifyOrExit(mState == State::kReady);
 
-    for (Service &service : mServices)
-    {
-        otbrLogInfo("Remove service %s.%s", service.mName.c_str(), service.mType.c_str());
-        DNSServiceRefDeallocate(service.mServiceRef);
-    }
-    mServices.clear();
+    mServiceRegistrations.clear();
 
-    otbrLogInfo("Remove all hosts");
+    mHostRegistrations.clear();
     if (mHostsRef != nullptr)
     {
         DNSServiceRefDeallocate(mHostsRef);
         mHostsRef = nullptr;
     }
-
-    mHosts.clear();
 
 exit:
     return;
@@ -260,17 +253,19 @@ exit:
 
 void PublisherMDnsSd::Update(MainloopContext &aMainloop)
 {
-    for (Service &service : mServices)
+    for (auto &kv : mServiceRegistrations)
     {
-        assert(service.mServiceRef != nullptr);
+        auto serviceReg = std::dynamic_pointer_cast<DnssdServiceRegistration>(kv.second);
 
-        int fd = DNSServiceRefSockFD(service.mServiceRef);
+        assert(serviceReg->GetServiceRef() != nullptr);
 
-        assert(fd != -1);
+        int fd = DNSServiceRefSockFD(serviceReg->GetServiceRef());
 
-        FD_SET(fd, &aMainloop.mReadFdSet);
-
-        aMainloop.mMaxFd = std::max(aMainloop.mMaxFd, fd);
+        if (fd != -1)
+        {
+            FD_SET(fd, &aMainloop.mReadFdSet);
+            aMainloop.mMaxFd = std::max(aMainloop.mMaxFd, fd);
+        }
     }
 
     if (mHostsRef != nullptr)
@@ -313,13 +308,14 @@ void PublisherMDnsSd::Process(const MainloopContext &aMainloop)
 {
     std::vector<DNSServiceRef> readyServices;
 
-    for (Service &service : mServices)
+    for (auto &kv : mServiceRegistrations)
     {
-        int fd = DNSServiceRefSockFD(service.mServiceRef);
+        auto serviceReg = std::dynamic_pointer_cast<DnssdServiceRegistration>(kv.second);
+        int  fd         = DNSServiceRefSockFD(serviceReg->GetServiceRef());
 
         if (FD_ISSET(fd, &aMainloop.mReadFdSet))
         {
-            readyServices.push_back(service.mServiceRef);
+            readyServices.push_back(serviceReg->GetServiceRef());
         }
     }
 
@@ -372,6 +368,72 @@ void PublisherMDnsSd::Process(const MainloopContext &aMainloop)
     }
 }
 
+PublisherMDnsSd::DnssdServiceRegistration::~DnssdServiceRegistration(void)
+{
+    if (mServiceRef != nullptr)
+    {
+        DNSServiceRefDeallocate(mServiceRef);
+    }
+}
+
+PublisherMDnsSd::DnssdHostRegistration::~DnssdHostRegistration(void)
+{
+    VerifyOrExit(mServiceRef != nullptr && mRecordRef != nullptr);
+
+    if (IsCompleted())
+    {
+        // The Bonjour mDNSResponder somehow doesn't send goodbye message for the AAAA record when it is
+        // removed by `DNSServiceRemoveRecord`. Per RFC 6762, a goodbye message of a record sets its TTL
+        // to zero but the receiver should record the TTL of 1 and flushes the cache 1 second later. Here
+        // we remove the AAAA record after updating its TTL to 1 second. This has the same effect as
+        // sending a goodbye message.
+        // TODO: resolve the goodbye issue with Bonjour mDNSResponder.
+        int dnsError = DNSServiceUpdateRecord(mServiceRef, mRecordRef, kDNSServiceFlagsUnique, mAddress.size(),
+                                              mAddress.data(), /* ttl */ 1);
+        otbrLogWarning("Failed to send goodbye message for host %s: %s", MakeFullHostName(mName).c_str(),
+                       DNSErrorToString(dnsError));
+    }
+
+    DNSServiceRemoveRecord(mServiceRef, mRecordRef, /* flags */ 0);
+    // TODO: ?
+    // DNSRecordRefDeallocate(mRecordRef);
+
+exit:
+    return;
+}
+
+Publisher::ServiceRegistrationPtr PublisherMDnsSd::FindServiceRegistration(const DNSServiceRef &aServiceRef)
+{
+    for (auto &kv : mServiceRegistrations)
+    {
+        // We are sure that the service registrations must be instances of `DnssdServiceRegistration`.
+        auto dnssdServiceReg = std::dynamic_pointer_cast<DnssdServiceRegistration>(kv.second);
+
+        if (dnssdServiceReg != nullptr && dnssdServiceReg->GetServiceRef() == aServiceRef)
+        {
+            return dnssdServiceReg;
+        }
+    }
+    return nullptr;
+}
+
+Publisher::HostRegistrationPtr PublisherMDnsSd::FindHostRegistration(const DNSServiceRef &aServiceRef,
+                                                                     const DNSRecordRef & aRecordRef)
+{
+    for (auto &kv : mHostRegistrations)
+    {
+        // We are sure that the host registrations must be instances of `DnssdServiceRegistration`.
+        auto dnssdHostReg = std::dynamic_pointer_cast<DnssdHostRegistration>(kv.second);
+
+        if (dnssdHostReg != nullptr && dnssdHostReg->GetServiceRef() == aServiceRef &&
+            dnssdHostReg->GetRecordRef() == aRecordRef)
+        {
+            return dnssdHostReg;
+        }
+    }
+    return nullptr;
+}
+
 void PublisherMDnsSd::HandleServiceRegisterResult(DNSServiceRef         aService,
                                                   const DNSServiceFlags aFlags,
                                                   DNSServiceErrorType   aError,
@@ -393,17 +455,16 @@ void PublisherMDnsSd::HandleServiceRegisterResult(DNSServiceRef         aService
 {
     OTBR_UNUSED_VARIABLE(aDomain);
 
-    otbrError             error = DNSErrorToOtbrError(aError);
-    std::string           originalInstanceName;
-    ResultCallback        callback;
-    ServiceList::iterator service = FindPublishedService(aServiceRef);
+    std::string            originalInstanceName;
+    ServiceRegistrationPtr serviceReg = FindServiceRegistration(aServiceRef);
 
-    VerifyOrExit(service != mServices.end());
-    callback = std::move(service->mCallback); // TODO: clear the callback once it's called.
+    VerifyOrExit(serviceReg != nullptr);
+
+    assert(serviceReg->mType == aType);
 
     // mDNSResponder could auto-rename the service instance
     // name when name conflict is detected.
-    originalInstanceName = service->mName;
+    originalInstanceName = serviceReg->mName;
 
     otbrLogInfo("Received reply for service %s.%s", originalInstanceName.c_str(), aType);
 
@@ -415,105 +476,56 @@ void PublisherMDnsSd::HandleServiceRegisterResult(DNSServiceRef         aService
     if (aError == kDNSServiceErr_NoError && (aFlags & kDNSServiceFlagsAdd))
     {
         otbrLogInfo("Successfully registered service %s.%s", originalInstanceName.c_str(), aType);
+        serviceReg->Complete(OTBR_ERROR_NONE);
     }
     else
     {
         otbrLogErr("Failed to register service %s.%s: %s", originalInstanceName.c_str(), aType,
                    DNSErrorToString(aError));
-        DNSServiceRefDeallocate(service->mServiceRef);
-        mServices.erase(service);
-    }
-
-    if (callback != nullptr)
-    {
-        callback(error);
+        serviceReg->Complete(DNSErrorToOtbrError(aError));
+        RemoveServiceRegistration(serviceReg->mName, serviceReg->mType);
     }
 
 exit:
     return;
 }
 
-bool PublisherMDnsSd::IsServiceOutdated(const Service &      service,
-                                        std::string          aName,
-                                        std::string          aType,
-                                        std::string          aRegType,
-                                        std::vector<uint8_t> aTxtData,
-                                        uint16_t             aPort)
-{
-    return !(service.mName == aName && service.mType == aType && service.mRegType == aRegType &&
-             service.mTxtData == aTxtData && service.mPort == aPort);
-}
-
 void PublisherMDnsSd::PublishService(const std::string &aHostName,
-                                     uint16_t           aPort,
                                      const std::string &aName,
                                      const std::string &aType,
                                      const SubTypeList &aSubTypeList,
+                                     uint16_t           aPort,
                                      const TxtList &    aTxtList,
-                                     ResultCallback     aCallback)
+                                     ResultCallback &&  aCallback)
 {
-    otbrError             ret   = OTBR_ERROR_NONE;
-    int                   error = 0;
-    std::vector<uint8_t>  txt;
-    std::string           regType    = MakeRegType(aType, aSubTypeList);
-    ServiceList::iterator service    = FindPublishedService(aName, aType);
-    DNSServiceRef         serviceRef = nullptr;
-    std::string           fullHostName;
+    otbrError              ret   = OTBR_ERROR_NONE;
+    int                    error = 0;
+    std::vector<uint8_t>   txt;
+    SubTypeList            sortedSubTypeList = SortSubTypeList(aSubTypeList);
+    TxtList                sortedTxtList     = SortTxtList(aTxtList);
+    std::string            regType           = MakeRegType(aType, sortedSubTypeList);
+    ServiceRegistrationPtr serviceReg        = Publisher::FindServiceRegistration(aName, aType);
+    DNSServiceRef          serviceRef        = nullptr;
+    std::string            fullHostName;
 
     if (!aHostName.empty())
     {
-        HostList::iterator host = FindPublishedHost(aHostName);
+        HostRegistrationPtr hostReg = Publisher::FindHostRegistration(aHostName);
 
         // Make sure that the host has been published.
-        VerifyOrExit(host != mHosts.end(), ret = OTBR_ERROR_INVALID_ARGS);
-        fullHostName = MakeFullName(aHostName);
+        VerifyOrExit(hostReg != nullptr, ret = OTBR_ERROR_INVALID_ARGS);
+        fullHostName = MakeFullHostName(aHostName);
     }
 
     SuccessOrExit(ret = EncodeTxtData(aTxtList, txt));
 
-    if (service != mServices.end())
+    if (serviceReg != nullptr)
     {
-        if (IsServiceOutdated(*service, aName, aType, regType, txt, aPort))
+        aCallback = HandleDuplicateServiceRegistration(
+            serviceReg, serviceReg->IsOutdated(aHostName, aName, aType, sortedSubTypeList, aPort, sortedTxtList),
+            std::move(aCallback));
+        if (aCallback.IsNull())
         {
-            if (service->mCallback == nullptr)
-            {
-                // TOOD(wgtdkp): call this callback asynchronously.
-                service->mCallback(OTBR_ERROR_ABORTED);
-                service->mCallback = nullptr;
-            }
-
-            otbrLogInfo("Remove service ref %p", service->mServiceRef);
-            DNSServiceRefDeallocate(service->mServiceRef);
-            service->mServiceRef = nullptr;
-
-            otbrLogInfo("Update existing service %s.%s", aName.c_str(), aType.c_str());
-            service->mName     = aName;
-            service->mType     = aType;
-            service->mRegType  = regType;
-            service->mTxtData  = txt;
-            service->mPort     = aPort;
-            service->mCallback = aCallback;
-        }
-        else
-        {
-            if (service->mCallback == nullptr)
-            {
-                ResultCallback curCallback = service->mCallback;
-
-                // If the same same service is being registered with the same parameters,
-                // let's join the waiting queue for the result.
-                service->mCallback = [curCallback, aCallback](otbrError aError) {
-                    curCallback(aError);
-                    aCallback(aError);
-                };
-            }
-            else
-            {
-                // Return success if the same service has already been
-                // registered with exactly the same parameters.
-                aCallback(OTBR_ERROR_NONE);
-            }
-
             ExitNow();
         }
     }
@@ -522,15 +534,8 @@ void PublisherMDnsSd::PublishService(const std::string &aHostName,
                                              regType.c_str(), /* domain */ nullptr,
                                              !aHostName.empty() ? fullHostName.c_str() : nullptr, htons(aPort),
                                              txt.size(), txt.data(), HandleServiceRegisterResult, this));
-
-    if (service == mServices.end())
-    {
-        mServices.emplace_back(Service{aName, aType, regType, txt, aPort, serviceRef, aCallback});
-    }
-    else
-    {
-        service->mServiceRef = serviceRef;
-    }
+    AddServiceRegistration(std::make_shared<DnssdServiceRegistration>(aHostName, aName, aType, sortedSubTypeList, aPort,
+                                                                      sortedTxtList, std::move(aCallback), serviceRef));
 
 exit:
     if (error != kDNSServiceErr_NoError || ret != OTBR_ERROR_NONE)
@@ -541,94 +546,44 @@ exit:
             otbrLogErr("Failed to publish service %s.%s for mdnssd error: %s!", aName.c_str(), aType.c_str(),
                        DNSErrorToString(error));
         }
-
-        if (service != mServices.end())
-        {
-            DNSServiceRefDeallocate(service->mServiceRef);
-            mServices.erase(service);
-        }
-        aCallback(ret);
+        std::move(aCallback)(ret);
     }
 }
 
-void PublisherMDnsSd::UnpublishService(const std::string &aName, const std::string &aType, ResultCallback aCallback)
+void PublisherMDnsSd::UnpublishService(const std::string &aName, const std::string &aType, ResultCallback &&aCallback)
 {
-    ServiceList::iterator service = FindPublishedService(aName, aType);
-
-    if (service != mServices.end())
-    {
-        assert(service->mServiceRef != nullptr);
-
-        if (service->mCallback != nullptr)
-        {
-            service->mCallback(OTBR_ERROR_ABORTED);
-        }
-        DNSServiceRefDeallocate(service->mServiceRef);
-        mServices.erase(service);
-    }
-
-    aCallback(OTBR_ERROR_NONE);
+    RemoveServiceRegistration(aName, aType);
+    std::move(aCallback)(OTBR_ERROR_NONE);
 }
 
 void PublisherMDnsSd::PublishHost(const std::string &         aName,
                                   const std::vector<uint8_t> &aAddress,
-                                  ResultCallback              aCallback)
+                                  ResultCallback &&           aCallback)
 {
-    otbrError          ret   = OTBR_ERROR_NONE;
-    int                error = 0;
-    std::string        fullName;
-    DNSRecordRef       recordRef = nullptr;
-    HostList::iterator host      = FindPublishedHost(aName);
+    otbrError           ret   = OTBR_ERROR_NONE;
+    int                 error = 0;
+    std::string         fullName;
+    DNSRecordRef        recordRef = nullptr;
+    HostRegistrationPtr hostReg   = Publisher::FindHostRegistration(aName);
 
     // Supports only IPv6 for now, may support IPv4 in the future.
     VerifyOrExit(aAddress.size() == OTBR_IP6_ADDRESS_SIZE, error = OTBR_ERROR_INVALID_ARGS);
 
-    fullName = MakeFullName(aName);
+    fullName = MakeFullHostName(aName);
 
     if (mHostsRef == nullptr)
     {
         SuccessOrExit(error = DNSServiceCreateConnection(&mHostsRef));
     }
 
-    if (host != mHosts.end())
+    if (hostReg != nullptr)
     {
-        assert(host->mRecordRef != nullptr);
-
-        if (host->mAddress != aAddress)
+        aCallback =
+            HandleDuplicateHostRegistration(hostReg, hostReg->IsOutdated(aName, aAddress), std::move(aCallback));
+        if (aCallback.IsNull())
         {
-            if (host->mCallback != nullptr)
-            {
-                // TOOD(wgtdkp): call this callback asynchronously.
-                host->mCallback(OTBR_ERROR_ABORTED);
-            }
-            host->mCallback = aCallback;
-            host->mName     = aName;
-            host->mAddress  = aAddress;
-
-            SuccessOrExit(error = DNSServiceUpdateRecord(mHostsRef, host->mRecordRef, kDNSServiceFlagsUnique,
-                                                         aAddress.size(), aAddress.data(), /* ttl */ 0));
-            host->mCallback(OTBR_ERROR_NONE);
-            host->mCallback = nullptr;
+            ExitNow();
         }
-        else if (host->mCallback == nullptr)
-        {
-            ResultCallback curCallback = host->mCallback;
-
-            // If the same same host is being registered with the same parameters,
-            // let's join the waiting queue for the result.
-            host->mCallback = [curCallback, aCallback](otbrError aError) {
-                curCallback(aError);
-                aCallback(aError);
-            };
-        }
-        else
-        {
-            // Return success if the same host has already been
-            // registered with exactly the same parameters.
-            aCallback(OTBR_ERROR_NONE);
-        }
-
-        ExitNow();
     }
 
     otbrLogInfo("Publish new host %s", aName.c_str());
@@ -636,7 +591,8 @@ void PublisherMDnsSd::PublishHost(const std::string &         aName,
                                                    kDNSServiceInterfaceIndexAny, fullName.c_str(), kDNSServiceType_AAAA,
                                                    kDNSServiceClass_IN, aAddress.size(), aAddress.data(), /* ttl */ 0,
                                                    HandleRegisterHostResult, this));
-    mHosts.emplace_back(Host{aName, aAddress, recordRef, aCallback});
+    AddHostRegistration(
+        std::make_shared<DnssdHostRegistration>(aName, aAddress, std::move(aCallback), mHostsRef, recordRef));
 
 exit:
     if (error != kDNSServiceErr_NoError || ret != OTBR_ERROR_NONE)
@@ -648,103 +604,63 @@ exit:
                        DNSErrorToString(error));
         }
 
-        if (host != mHosts.end())
-        {
-            DNSServiceRemoveRecord(mHostsRef, host->mRecordRef, /* flags */ 0);
-            mHosts.erase(host);
-        }
-        aCallback(ret);
+        std::move(aCallback)(ret);
     }
 }
 
-void PublisherMDnsSd::UnpublishHost(const std::string &aName, ResultCallback aCallback)
+void PublisherMDnsSd::UnpublishHost(const std::string &aName, ResultCallback &&aCallback)
 {
-    otbrError          error = OTBR_ERROR_NONE;
-    int                dnsError;
-    HostList::iterator host = FindPublishedHost(aName);
+    otbrLogInfo("Removing host %s", MakeFullHostName(aName).c_str());
 
-    otbrLogInfo("Removing host %s", aName.c_str());
+    RemoveHostRegistration(aName);
 
-    if (mHostsRef == nullptr)
-    {
-        dnsError = DNSServiceCreateConnection(&mHostsRef);
-        SuccessOrExit(error = DNSErrorToOtbrError(dnsError));
-    }
-
-    if (host != mHosts.end())
-    {
-        assert(host->mRecordRef != nullptr);
-
-        if (host->mCallback != nullptr)
-        {
-            host->mCallback(OTBR_ERROR_ABORTED);
-        }
-
-        // The Bonjour mDNSResponder somehow doesn't send goodbye message for the AAAA record when it is
-        // removed by `DNSServiceRemoveRecord`. Per RFC 6762, a goodbye message of a record sets its TTL
-        // to zero but the receiver should record the TTL of 1 and flushes the cache 1 second later. Here
-        // we remove the AAAA record after updating its TTL to 1 second. This has the same effect as
-        // sending a goodbye message.
-        // TODO: resolve the goodbye issue with Bonjour mDNSResponder.
-        dnsError = DNSServiceUpdateRecord(mHostsRef, host->mRecordRef, kDNSServiceFlagsUnique, host->mAddress.size(),
-                                          &host->mAddress.front(), /* ttl */ 1);
-        error    = DNSErrorToOtbrError(dnsError);
-
-        DNSServiceRemoveRecord(mHostsRef, host->mRecordRef, /* flags */ 0);
-        mHosts.erase(host);
-    }
-
-exit:
-    aCallback(error);
+    // We may failed to unregister the host from underlying mDNS publishers, but
+    // it usually means that the mDNS publisher is already not functioning. So it's
+    // okay to return success directly since the service is not advertised anyway.
+    std::move(aCallback)(OTBR_ERROR_NONE);
 }
 
-void PublisherMDnsSd::HandleRegisterHostResult(DNSServiceRef       aHostsConnection,
-                                               DNSRecordRef        aHostRecord,
+void PublisherMDnsSd::HandleRegisterHostResult(DNSServiceRef       aServiceRef,
+                                               DNSRecordRef        aRecordRef,
                                                DNSServiceFlags     aFlags,
-                                               DNSServiceErrorType aErrorCode,
+                                               DNSServiceErrorType aError,
                                                void *              aContext)
 {
-    static_cast<PublisherMDnsSd *>(aContext)->HandleRegisterHostResult(aHostsConnection, aHostRecord, aFlags,
-                                                                       aErrorCode);
+    static_cast<PublisherMDnsSd *>(aContext)->HandleRegisterHostResult(aServiceRef, aRecordRef, aFlags, aError);
 }
 
-void PublisherMDnsSd::HandleRegisterHostResult(DNSServiceRef       aHostsConnection,
-                                               DNSRecordRef        aHostRecord,
+void PublisherMDnsSd::HandleRegisterHostResult(DNSServiceRef       aServiceRef,
+                                               DNSRecordRef        aRecordRef,
                                                DNSServiceFlags     aFlags,
-                                               DNSServiceErrorType aErrorCode)
+                                               DNSServiceErrorType aError)
 {
-    OTBR_UNUSED_VARIABLE(aHostsConnection);
     OTBR_UNUSED_VARIABLE(aFlags);
 
-    HostList::iterator host = FindPublishedHost(aHostRecord);
-    std::string        hostName;
-    ResultCallback     callback = nullptr;
+    otbrError           error   = DNSErrorToOtbrError(aError);
+    HostRegistrationPtr hostReg = FindHostRegistration(aServiceRef, aRecordRef);
 
-    VerifyOrExit(host != mHosts.end());
+    std::string hostName;
 
-    hostName = host->mName;
-    callback = std::move(host->mCallback);
+    VerifyOrExit(hostReg != nullptr);
+
+    hostName = MakeFullHostName(hostReg->mName);
 
     otbrLogInfo("Received reply for host %s", hostName.c_str());
 
-    if (aErrorCode != kDNSServiceErr_NoError)
+    if (error == OTBR_ERROR_NONE)
     {
-        otbrLogWarning("failed to register host %s for mdnssd error: %s", hostName.c_str(),
-                       DNSErrorToString(aErrorCode));
-        DNSServiceRemoveRecord(mHostsRef, host->mRecordRef, /* flags */ 0);
-        mHosts.erase(host);
+        otbrLogInfo("Successfully registered host %s", hostName.c_str());
+        hostReg->Complete(OTBR_ERROR_NONE);
+    }
+    else
+    {
+        otbrLogWarning("failed to register host %s for mdnssd error: %s", hostName.c_str(), DNSErrorToString(aError));
+        hostReg->Complete(error);
+        RemoveHostRegistration(hostReg->mName);
     }
 
 exit:
-    if (callback != nullptr)
-    {
-        callback(DNSErrorToOtbrError(aErrorCode));
-    }
-}
-
-std::string PublisherMDnsSd::MakeFullName(const std::string &aName)
-{
-    return aName + "." + kDomain;
+    return;
 }
 
 // See `regtype` parameter of the DNSServiceRegister() function for more information.
@@ -760,32 +676,6 @@ std::string PublisherMDnsSd::MakeRegType(const std::string &aType, SubTypeList a
     }
 
     return regType;
-}
-
-PublisherMDnsSd::ServiceList::iterator PublisherMDnsSd::FindPublishedService(const std::string &aName,
-                                                                             const std::string &aType)
-{
-    return std::find_if(mServices.begin(), mServices.end(), [&aName, &aType](const Service &service) {
-        return aName == service.mName && IsServiceTypeEqual(aType, service.mType);
-    });
-}
-
-PublisherMDnsSd::ServiceList::iterator PublisherMDnsSd::FindPublishedService(const DNSServiceRef &aServiceRef)
-{
-    return std::find_if(mServices.begin(), mServices.end(),
-                        [&aServiceRef](const Service &service) { return service.mServiceRef == aServiceRef; });
-}
-
-PublisherMDnsSd::HostList::iterator PublisherMDnsSd::FindPublishedHost(const DNSRecordRef &aRecordRef)
-{
-    return std::find_if(mHosts.begin(), mHosts.end(),
-                        [&aRecordRef](const Host &host) { return host.mRecordRef == aRecordRef; });
-}
-
-PublisherMDnsSd::HostList::iterator PublisherMDnsSd::FindPublishedHost(const std::string &aHostName)
-{
-    return std::find_if(mHosts.begin(), mHosts.end(),
-                        [&aHostName](const Host &host) { return host.mName == aHostName; });
 }
 
 void PublisherMDnsSd::SubscribeService(const std::string &aType, const std::string &aInstanceName)
@@ -1099,7 +989,7 @@ exit:
 
 void PublisherMDnsSd::HostSubscription::Resolve(void)
 {
-    std::string fullHostName = MakeFullName(mHostName);
+    std::string fullHostName = MakeFullHostName(mHostName);
 
     assert(mServiceRef == nullptr);
 
