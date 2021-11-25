@@ -138,13 +138,12 @@ private:
         uint32_t ToUint32(void) const;
     };
 
-    void        Start(void);
-    void        Stop(void);
-    static void HandleMdnsState(void *aContext, Mdns::Publisher::State aState);
-    void        HandleMdnsState(Mdns::Publisher::State aState);
-    void        PublishMeshCopService(void);
-    void        UpdateMeshCopService(void);
-    void        UnpublishMeshCopService(void);
+    void Start(void);
+    void Stop(void);
+    void HandleMdnsState(Mdns::Publisher::State aState);
+    void PublishMeshCopService(void);
+    void UpdateMeshCopService(void);
+    void UnpublishMeshCopService(void);
 #if OTBR_ENABLE_DBUS_SERVER
     void HandleUpdateVendorMeshCoPTxtEntries(std::map<std::string, std::vector<uint8_t>> aUpdate);
 #endif
