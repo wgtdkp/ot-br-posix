@@ -1,5 +1,5 @@
 /*
- *    Copyright (c) 2017, The OpenThread Authors.
+ *    Copyright (c) 2021, The OpenThread Authors.
  *    All rights reserved.
  *
  *    Redistribution and use in source and binary forms, with or without
@@ -26,38 +26,42 @@
  *    POSSIBILITY OF SUCH DAMAGE.
  */
 
-/**
- * @file
- *   This file includes implementation for Thread border router agent instance.
- */
+#include "common/callback.hpp"
 
-#define OTBR_LOG_TAG "AGENT"
+#include <CppUTest/TestHarness.h>
 
-#include "agent/agent_instance.hpp"
+TEST_GROUP(IsNull){};
 
-#include <assert.h>
-
-#include "common/code_utils.hpp"
-#include "common/logging.hpp"
-
-namespace otbr {
-
-AgentInstance::AgentInstance(Ncp::ControllerOpenThread &aNcp)
-    : mNcp(aNcp)
-    , mBorderAgent(aNcp)
+TEST(IsNull, NullptrIsNull)
 {
+    otbr::OnceCallback<void(void)> noop = nullptr;
+
+    CHECK_TRUE(noop.IsNull());
 }
 
-otbrError AgentInstance::Init(void)
+TEST(IsNull, NonNullptrIsNotNull)
 {
-    otbrError error = OTBR_ERROR_NONE;
+    otbr::OnceCallback<void(void)> noop = [](void) {};
 
-    SuccessOrExit(error = mNcp.Init());
-
-    mBorderAgent.Init();
-
-exit:
-    otbrLogResult(error, "Initialize OpenThread Border Router Agent");
-    return error;
+    CHECK_FALSE(noop.IsNull());
 }
-} // namespace otbr
+
+TEST(IsNull, IsNullAfterInvoking)
+{
+    otbr::OnceCallback<int(int)> square = [](int x) { return x * x; };
+
+    std::move(square)(5);
+
+    CHECK_TRUE(square.IsNull());
+}
+
+TEST_GROUP(VerifyInvocation){};
+
+TEST(VerifyInvocation, CallbackResultIsExpected)
+{
+    otbr::OnceCallback<int(int)> square = [](int x) { return x * x; };
+
+    int ret = std::move(square)(5);
+
+    CHECK_EQUAL(ret, 25);
+}

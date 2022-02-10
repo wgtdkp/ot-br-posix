@@ -26,7 +26,7 @@
  *    POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define OTBR_LOG_TAG "AGENT"
+#define OTBR_LOG_TAG "NCP"
 
 #include "ncp/ncp_openthread.hpp"
 
@@ -62,7 +62,8 @@ static const uint16_t kThreadVersion12 = 3; ///< Thread Version 1.2
 
 ControllerOpenThread::ControllerOpenThread(const char *                     aInterfaceName,
                                            const std::vector<const char *> &aRadioUrls,
-                                           const char *                     aBackboneInterfaceName)
+                                           const char *                     aBackboneInterfaceName,
+                                           bool                             aDryRun)
     : mInstance(nullptr)
 {
     VerifyOrDie(aRadioUrls.size() <= OT_PLATFORM_CONFIG_MAX_RADIO_URLS, "Too many Radio URLs!");
@@ -71,6 +72,8 @@ ControllerOpenThread::ControllerOpenThread(const char *                     aInt
 
     mConfig.mInterfaceName         = aInterfaceName;
     mConfig.mBackboneInterfaceName = aBackboneInterfaceName;
+    mConfig.mDryRun                = aDryRun;
+
     for (const char *url : aRadioUrls)
     {
         mConfig.mRadioUrls[mConfig.mRadioUrlNum++] = url;
@@ -80,10 +83,11 @@ ControllerOpenThread::ControllerOpenThread(const char *                     aInt
 
 ControllerOpenThread::~ControllerOpenThread(void)
 {
-    otSysDeinit();
+    // Make sure OpenThread Instance was gracefully de-initialized.
+    assert(mInstance == nullptr);
 }
 
-otbrError ControllerOpenThread::Init(void)
+void ControllerOpenThread::Init(void)
 {
     otbrError  error = OTBR_ERROR_NONE;
     otLogLevel level = OT_LOG_LEVEL_NONE;
@@ -135,7 +139,15 @@ otbrError ControllerOpenThread::Init(void)
     mThreadHelper = std::unique_ptr<otbr::agent::ThreadHelper>(new otbr::agent::ThreadHelper(mInstance, this));
 
 exit:
-    return error;
+    SuccessOrDie(error, "Failed to initialize NCP!");
+}
+
+void ControllerOpenThread::Deinit(void)
+{
+    assert(mInstance != nullptr);
+
+    otSysDeinit();
+    mInstance = nullptr;
 }
 
 void ControllerOpenThread::HandleStateChanged(otChangedFlags aFlags)
@@ -185,10 +197,23 @@ void ControllerOpenThread::Process(const MainloopContext &aMainloop)
 
     otSysMainloopProcess(mInstance, &aMainloop);
 
-    if (getenv("OTBR_NO_AUTO_ATTACH") == nullptr && mThreadHelper->TryResumeNetwork() == OT_ERROR_NONE)
+    if (IsAutoAttachEnabled() && mThreadHelper->TryResumeNetwork() == OT_ERROR_NONE)
     {
-        setenv("OTBR_NO_AUTO_ATTACH", "1", 0);
+        DisableAutoAttach();
     }
+}
+
+bool ControllerOpenThread::IsAutoAttachEnabled(void)
+{
+    const char *val = getenv("OTBR_NO_AUTO_ATTACH");
+
+    // Auto Thread attaching is enabled if OTBR_NO_AUTO_ATTACH is unset, empty or "0"
+    return (val == nullptr || !strcmp(val, "") || !strcmp(val, "0"));
+}
+
+void ControllerOpenThread::DisableAutoAttach(void)
+{
+    setenv("OTBR_NO_AUTO_ATTACH", "1", 1);
 }
 
 void ControllerOpenThread::PostTimerTask(Milliseconds aDelay, TaskRunner::Task<void> aTask)

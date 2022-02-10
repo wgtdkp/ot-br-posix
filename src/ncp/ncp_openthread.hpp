@@ -37,6 +37,8 @@
 #include <chrono>
 #include <memory>
 
+#include <assert.h>
+
 #include <openthread/backbone_router_ftd.h>
 #include <openthread/cli.h>
 #include <openthread/instance.h>
@@ -62,22 +64,28 @@ public:
     /**
      * This constructor initializes this object.
      *
-     * @param[in] aInterfaceName          A string of the NCP interface name.
-     * @param[in] aRadioUrls              The radio URLs (can be IEEE802.15.4 or TREL radio).
-     * @param[in] aBackboneInterfaceName  The Backbone network interface name.
+     * @param[in]   aInterfaceName          A string of the NCP interface name.
+     * @param[in]   aRadioUrls              The radio URLs (can be IEEE802.15.4 or TREL radio).
+     * @param[in]   aBackboneInterfaceName  The Backbone network interface name.
+     * @param[in]   aDryRun                 TRUE to indicate dry-run mode. FALSE otherwise.
      *
      */
     ControllerOpenThread(const char *                     aInterfaceName,
                          const std::vector<const char *> &aRadioUrls,
-                         const char *                     aBackboneInterfaceName);
+                         const char *                     aBackboneInterfaceName,
+                         bool                             aDryRun);
 
     /**
-     * This method initalize the NCP controller.
-     *
-     * @retval OTBR_ERROR_NONE  Successfully initialized NCP controller.
+     * This method initialize the NCP controller.
      *
      */
-    otbrError Init(void);
+    void Init(void);
+
+    /**
+     * This method deinitialize the NCP controller.
+     *
+     */
+    void Deinit(void);
 
     /**
      * This method get mInstance pointer.
@@ -85,7 +93,11 @@ public:
      * @retval The pointer of mInstance.
      *
      */
-    otInstance *GetInstance(void) { return mInstance; }
+    otInstance *GetInstance(void)
+    {
+        assert(mInstance != nullptr);
+        return mInstance;
+    }
 
     /**
      * This method gets the thread functionality helper.
@@ -93,7 +105,11 @@ public:
      * @retval The pointer to the helper object.
      *
      */
-    otbr::agent::ThreadHelper *GetThreadHelper(void) { return mThreadHelper.get(); }
+    otbr::agent::ThreadHelper *GetThreadHelper(void)
+    {
+        assert(mThreadHelper != nullptr);
+        return mThreadHelper.get();
+    }
 
     void Update(MainloopContext &aMainloop) override;
     void Process(const MainloopContext &aMainloop) override;
@@ -166,6 +182,10 @@ private:
                                                  const otIp6Address *         aAddress);
     void        HandleBackboneRouterNdProxyEvent(otBackboneRouterNdProxyEvent aEvent, const otIp6Address *aAddress);
 #endif
+
+    static bool IsAutoAttachEnabled(void);
+
+    static void DisableAutoAttach(void);
 
     otInstance *mInstance;
 

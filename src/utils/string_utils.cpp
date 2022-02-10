@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2019, The OpenThread Authors.
+ *  Copyright (c) 2021, The OpenThread Authors.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -26,19 +26,29 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "utils/strcpy_utils.hpp"
+#include "utils/string_utils.hpp"
+
+#include <algorithm>
 
 #include "common/code_utils.hpp"
 
-int strcpy_safe(char *aDest, size_t aDestSize, const char *aSrc)
+namespace otbr {
+
+namespace StringUtils {
+
+bool EqualCaseInsensitive(const std::string &aString1, const std::string &aString2)
 {
-    int ret = 0;
-    VerifyOrExit(aDest != nullptr, ret = -1);
-    VerifyOrExit(aSrc != nullptr, ret = -1, aDest[0] = 0);
-    VerifyOrExit(aDestSize > strnlen(aSrc, aDestSize), ret = -1, aDest[0] = 0);
+    return ToLowercase(aString1) == ToLowercase(aString2);
+}
 
-    strncpy(aDest, aSrc, aDestSize);
+std::string ToLowercase(const std::string &aString)
+{
+    std::string ret = aString;
 
-exit:
+    std::transform(ret.begin(), ret.end(), ret.begin(), [](char c) { return std::tolower(c); });
     return ret;
 }
+
+} // namespace StringUtils
+
+} // namespace otbr
