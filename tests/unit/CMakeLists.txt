@@ -53,3 +53,13 @@ add_test(
     NAME unit
     COMMAND otbr-test-unit
 )
+
+
+add_executable(srpl-main
+    srpl_main.cpp
+)
+
+target_link_libraries(srpl-main
+    PRIVATE
+        otbr-dso
+)

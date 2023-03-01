@@ -68,9 +68,10 @@ otbr_install()
     fi
 
     otbr_options=(
-        "-DBUILD_TESTING=OFF"
+        "-DBUILD_TESTING=ON"
         "-DCMAKE_INSTALL_PREFIX=/usr"
         "-DOTBR_DBUS=ON"
+        "-DOTBR_DNS_DSO=ON"
         "-DOTBR_DNSSD_DISCOVERY_PROXY=ON"
         "-DOTBR_SRP_ADVERTISING_PROXY=ON"
         "-DOTBR_INFRA_IF_NAME=${INFRA_IF_NAME}"

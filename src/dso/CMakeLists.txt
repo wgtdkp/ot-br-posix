@@ -34,6 +34,6 @@ add_library(otbr-dso
 target_link_libraries(otbr-dso
     PUBLIC
         mbedtls
-    PRIVATE
         otbr-common
+        otbr-ncp
 )

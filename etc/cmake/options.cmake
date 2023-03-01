@@ -122,3 +122,8 @@ if(OTBR_VENDOR_INFRA_LINK_SELECT)
 else()
     target_compile_definitions(otbr-config INTERFACE OTBR_ENABLE_VENDOR_INFRA_LINK_SELECT=0)
 endif()
+
+option(OTBR_DNS_DSO "Enable DSO" OFF)
+if(OTBR_DNS_DSO)
+    target_compile_definitions(otbr-config INTERFACE OTBR_ENABLE_DNS_DSO=1)
+endif()

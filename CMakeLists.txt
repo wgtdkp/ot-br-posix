@@ -29,7 +29,7 @@
 cmake_minimum_required(VERSION 3.10.2)
 project(openthread-br VERSION 0.3.0)
 
-add_compile_options(-Wall -Wextra -Werror -Wfatal-errors -Wuninitialized -Wno-missing-braces)
+add_compile_options(-g -O0 -Wall -Wextra -Werror -Wfatal-errors -Wuninitialized -Wno-missing-braces)
 
 add_library(otbr-config INTERFACE)
 

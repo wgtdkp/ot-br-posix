@@ -31,9 +31,15 @@ add_library(otbr-ncp
     ncp_openthread.hpp
 )
 
-target_link_libraries(otbr-ncp PRIVATE
-    otbr-common
-    $<$<BOOL:${OTBR_FEATURE_FLAGS}>:otbr-proto>
+target_link_libraries(otbr-ncp
+    PUBLIC
+        otbr-config
+        openthread-posix
+        openthread-ftd
+        openthread-posix
+    PRIVATE
+        otbr-common
+        $<$<BOOL:${OTBR_FEATURE_FLAGS}>:otbr-proto>
 )
 
 if(OTBR_FEATURE_FLAGS)

@@ -36,13 +36,10 @@
 
 #include <openthread-br/config.h>
 
-#include <openthread/openthread-system.h>
-
 #include <list>
 
 #include "common/code_utils.hpp"
 #include "common/mainloop.hpp"
-#include "ncp/ncp_openthread.hpp"
 
 namespace otbr {
 
