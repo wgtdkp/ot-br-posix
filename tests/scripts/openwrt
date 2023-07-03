@@ -53,7 +53,7 @@ do_prepare()
     docker exec "${CONTAINER_NAME}" scripts/feeds install libjson-c libubox libubus libavahi-client
 
     docker cp feeds.conf "${CONTAINER_NAME}":/home/build/openwrt/feeds.conf
-    docker exec "${CONTAINER_NAME}" sudo chown -R build:build /home/build/ot-br-posix /home/build/openwrt/feeds.conf /home/build/openwrt/bin
+    docker exec "${CONTAINER_NAME}" chown -R build:build /home/build/ot-br-posix /home/build/openwrt/feeds.conf /home/build/openwrt/bin
     docker exec "${CONTAINER_NAME}" scripts/feeds update openthread
     docker exec "${CONTAINER_NAME}" make defconfig
     docker exec "${CONTAINER_NAME}" scripts/feeds install openthread-br
