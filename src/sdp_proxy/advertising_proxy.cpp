@@ -86,14 +86,16 @@ void AdvertisingProxy::Start(void)
 
 void AdvertisingProxy::Stop(void)
 {
-    // Outstanding updates will fail on the SRP server because of timeout.
-    // TODO: handle this case gracefully.
-
     // Stop receiving SRP server events.
     if (GetInstance() != nullptr)
     {
+        for (const OutstandingUpdate &update : mOutstandingUpdates)
+        {
+            otSrpServerHandleServiceUpdateResult(GetInstance(), update.mId, OT_ERROR_ABORT);
+        }
         otSrpServerSetServiceUpdateHandler(GetInstance(), nullptr, nullptr);
     }
+    mOutstandingUpdates.clear();
 
     otbrLogInfo("Stopped");
 }
@@ -140,6 +142,8 @@ exit:
 
 void AdvertisingProxy::OnMdnsPublishResult(otSrpServerServiceUpdateId aUpdateId, otbrError aError)
 {
+    VerifyOrExit(IsEnabled() && GetInstance() != nullptr);
+
     for (auto update = mOutstandingUpdates.begin(); update != mOutstandingUpdates.end(); ++update)
     {
         if (update->mId != aUpdateId)
@@ -162,6 +166,9 @@ void AdvertisingProxy::OnMdnsPublishResult(otSrpServerServiceUpdateId aUpdateId,
         }
         break;
     }
+
+exit:
+    return;
 }
 
 std::vector<Ip6Address> AdvertisingProxy::GetEligibleAddresses(const otIp6Address *aHostAddresses,
